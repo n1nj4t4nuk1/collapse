@@ -4,6 +4,7 @@ from uuid import uuid4
 from fastapi import UploadFile
 
 from app.core.config import INPUT_DIR, MAX_UPLOAD_CHUNK_SIZE, OUTPUT_DIR
+from app.models.job import CompressionAlgorithm
 
 
 class StorageService:
@@ -15,8 +16,9 @@ class StorageService:
         suffix = Path(filename).suffix
         return INPUT_DIR / f"{uuid4().hex}{suffix}"
 
-    def build_output_path(self, job_id: str) -> Path:
-        return OUTPUT_DIR / f"{job_id}.7z"
+    def build_output_path(self, job_id: str, algorithm: CompressionAlgorithm) -> Path:
+        ext = "zip" if algorithm is CompressionAlgorithm.ZIP else "7z"
+        return OUTPUT_DIR / f"{job_id}.{ext}"
 
     async def save_upload(self, upload: UploadFile, destination: Path) -> None:
         self.ensure_directories()

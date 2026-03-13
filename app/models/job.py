@@ -11,12 +11,19 @@ class JobStatus(str, Enum):
     FAILED = "failed"
 
 
+class CompressionAlgorithm(str, Enum):
+    ZIP = "zip"
+    SEVENZ = "7z"
+
+
 @dataclass(slots=True)
 class CompressionJob:
     job_id: str
     original_filename: str
     original_path: Path
     compressed_path: Path
+    algorithm: CompressionAlgorithm
+    level: int
     status: JobStatus = JobStatus.PENDING
     error_message: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

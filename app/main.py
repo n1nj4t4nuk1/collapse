@@ -18,7 +18,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Collapse",
-    description="Upload a single file, compress it to 7z, check status, download the archive, and delete stored files.",
+    description="A simple file compression API.",
     version="0.1.0",
     lifespan=lifespan,
 )

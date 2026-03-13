@@ -24,6 +24,26 @@ def _build_archive_filename(original_filename: str, algorithm: CompressionAlgori
     return f"{original_filename}.{ext}"
 
 
+def _to_status_response(job: CompressionJob) -> JobStatusResponse:
+    return JobStatusResponse(
+        job_id=job.job_id,
+        filename=job.original_filename,
+        status=job.status,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+        archive_name=job.archive_filename,
+        algorithm=job.algorithm,
+        level=job.level,
+        error_message=job.error_message,
+    )
+
+
+@router.get("", response_model=list[JobStatusResponse])
+def list_jobs() -> list[JobStatusResponse]:
+    jobs = sorted(job_registry.list_all(), key=lambda job: job.created_at)
+    return [_to_status_response(job) for job in jobs]
+
+
 @router.post("", response_model=UploadAcceptedResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_file(
     file: UploadFile = File(...),
@@ -65,17 +85,7 @@ async def upload_file(
 @router.get("/{job_id}/status", response_model=JobStatusResponse)
 def get_job_status(job_id: str) -> JobStatusResponse:
     job = _get_job_or_404(job_id)
-    return JobStatusResponse(
-        job_id=job.job_id,
-        filename=job.original_filename,
-        status=job.status,
-        created_at=job.created_at,
-        updated_at=job.updated_at,
-        archive_name=job.archive_filename,
-        algorithm=job.algorithm,
-        level=job.level,
-        error_message=job.error_message,
-    )
+    return _to_status_response(job)
 
 
 @router.get("/{job_id}/download")

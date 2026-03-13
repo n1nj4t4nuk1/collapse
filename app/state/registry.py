@@ -16,6 +16,10 @@ class JobRegistry:
         with self._lock:
             return self._jobs.get(job_id)
 
+    def list_all(self) -> list[CompressionJob]:
+        with self._lock:
+            return list(self._jobs.values())
+
     def update_status(
         self,
         job_id: str,

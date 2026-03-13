@@ -7,7 +7,7 @@ from app.models.job import CompressionAlgorithm, CompressionJob, JobStatus
 from app.schemas.file_jobs import DeleteResponse, JobStatusResponse, UploadAcceptedResponse
 from app.services.compression_queue import compression_queue_service
 from app.services.storage import storage_service
-from app.state.registry import job_registry
+from app.state import job_registry
 
 router = APIRouter(prefix="/files", tags=["files"])
 

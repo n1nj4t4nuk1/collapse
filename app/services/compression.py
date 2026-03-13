@@ -2,7 +2,7 @@ import asyncio
 
 from app.models.job import CompressionAlgorithm, JobStatus
 from app.services.compression_strategies import CompressionStrategy, build_strategy_registry
-from app.state.registry import job_registry
+from app.state import job_registry
 
 
 class CompressionService:

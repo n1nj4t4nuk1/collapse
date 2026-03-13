@@ -1,11 +1,11 @@
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.models.job import CompressionAlgorithm, CompressionJob, JobStatus
 from app.schemas.file_jobs import DeleteResponse, JobStatusResponse, UploadAcceptedResponse
-from app.services.compression import compression_service
+from app.services.compression_queue import compression_queue_service
 from app.services.storage import storage_service
 from app.state.registry import job_registry
 
@@ -26,7 +26,6 @@ def _build_archive_filename(original_filename: str, algorithm: CompressionAlgori
 
 @router.post("", response_model=UploadAcceptedResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_file(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     algorithm: CompressionAlgorithm = Form(CompressionAlgorithm.SEVENZ),
     level: int = Form(5, ge=1, le=5),
@@ -51,7 +50,7 @@ async def upload_file(
         level=level,
     )
     job_registry.add(job)
-    background_tasks.add_task(compression_service.compress_job, job_id)
+    await compression_queue_service.enqueue(job_id)
 
     return UploadAcceptedResponse(
         job_id=job.job_id,
@@ -83,7 +82,7 @@ def get_job_status(job_id: str) -> JobStatusResponse:
 def download_archive(job_id: str) -> FileResponse:
     job = _get_job_or_404(job_id)
 
-    if job.status in {JobStatus.PENDING, JobStatus.COMPRESSING}:
+    if job.status in {JobStatus.QUEUED, JobStatus.COMPRESSING}:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Compression is still in progress.")
 
     if job.status is JobStatus.FAILED:
@@ -100,7 +99,7 @@ def download_archive(job_id: str) -> FileResponse:
 def delete_job_files(job_id: str) -> DeleteResponse:
     job = _get_job_or_404(job_id)
 
-    if job.status in {JobStatus.PENDING, JobStatus.COMPRESSING}:
+    if job.status in {JobStatus.QUEUED, JobStatus.COMPRESSING}:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cannot delete files while compression is in progress.")
 
     original_deleted = storage_service.delete_file(job.original_path)

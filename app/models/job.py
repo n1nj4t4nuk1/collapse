@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 class JobStatus(str, Enum):
-    PENDING = "pending"
+    QUEUED = "queued"
     COMPRESSING = "compressing"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -25,7 +25,7 @@ class CompressionJob:
     compressed_path: Path
     algorithm: CompressionAlgorithm
     level: int
-    status: JobStatus = JobStatus.PENDING
+    status: JobStatus = JobStatus.QUEUED
     error_message: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

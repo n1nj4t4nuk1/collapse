@@ -4,13 +4,16 @@ from fastapi import FastAPI
 import uvicorn
 
 from app.api.routes.files import router as files_router
+from app.services.compression_queue import compression_queue_service
 from app.services.storage import storage_service
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     storage_service.ensure_directories()
+    await compression_queue_service.start()
     yield
+    await compression_queue_service.stop()
 
 
 app = FastAPI(

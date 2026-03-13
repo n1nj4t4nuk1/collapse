@@ -1,7 +1,7 @@
 [project]
 name = "collapse"
 version = "0.1.0"
-description = "FastAPI service for storing, compressing, downloading, and deleting single-file archives in 7z format."
+description = "FastAPI service for file compression."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -10,6 +10,9 @@ dependencies = [
     "python-multipart>=0.0.20,<1.0.0",
     "uvicorn[standard]>=0.35.0,<1.0.0",
 ]
+
+[project.scripts]
+collapse = "app.main:run"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]

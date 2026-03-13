@@ -20,6 +20,7 @@ class CompressionAlgorithm(str, Enum):
 class CompressionJob:
     job_id: str
     original_filename: str
+    archive_filename: str
     original_path: Path
     compressed_path: Path
     algorithm: CompressionAlgorithm

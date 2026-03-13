@@ -19,6 +19,11 @@ def _get_job_or_404(job_id: str) -> CompressionJob:
     return job
 
 
+def _build_archive_filename(original_filename: str, algorithm: CompressionAlgorithm) -> str:
+    ext = "zip" if algorithm is CompressionAlgorithm.ZIP else "7z"
+    return f"{original_filename}.{ext}"
+
+
 @router.post("", response_model=UploadAcceptedResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_file(
     background_tasks: BackgroundTasks,
@@ -32,12 +37,14 @@ async def upload_file(
     job_id = uuid4().hex
     original_path = storage_service.build_input_path(file.filename)
     compressed_path = storage_service.build_output_path(job_id, algorithm)
+    archive_filename = _build_archive_filename(file.filename, algorithm)
 
     await storage_service.save_upload(file, original_path)
 
     job = CompressionJob(
         job_id=job_id,
         original_filename=file.filename,
+        archive_filename=archive_filename,
         original_path=original_path,
         compressed_path=compressed_path,
         algorithm=algorithm,
@@ -49,6 +56,7 @@ async def upload_file(
     return UploadAcceptedResponse(
         job_id=job.job_id,
         filename=job.original_filename,
+        archive_name=job.archive_filename,
         status=job.status,
         algorithm=job.algorithm,
         level=job.level,
@@ -64,7 +72,7 @@ def get_job_status(job_id: str) -> JobStatusResponse:
         status=job.status,
         created_at=job.created_at,
         updated_at=job.updated_at,
-        archive_name=job.compressed_path.name,
+        archive_name=job.archive_filename,
         algorithm=job.algorithm,
         level=job.level,
         error_message=job.error_message,
@@ -85,7 +93,7 @@ def download_archive(job_id: str) -> FileResponse:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Archive file not found.")
 
     media_type = "application/zip" if job.algorithm is CompressionAlgorithm.ZIP else "application/x-7z-compressed"
-    return FileResponse(path=job.compressed_path, filename=job.compressed_path.name, media_type=media_type)
+    return FileResponse(path=job.compressed_path, filename=job.archive_filename, media_type=media_type)
 
 
 @router.delete("/{job_id}", response_model=DeleteResponse)

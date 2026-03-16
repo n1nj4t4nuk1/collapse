@@ -80,6 +80,12 @@ Downloads the compressed archive (`.7z` or `.zip`) once the job status is `compl
 
 Deletes the original uploaded file and the compressed archive. Cannot be called while compression is in progress.
 
+---
+
+### `DELETE /files/completed`
+
+Deletes all jobs with status `completed`, removes their original and compressed files from storage, and returns a summary with `deleted_jobs` and `deleted_files`.
+
 ## Notes
 
 - Job state lives only in memory. Restarting the application clears the registry.

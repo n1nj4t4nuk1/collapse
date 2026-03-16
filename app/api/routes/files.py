@@ -4,7 +4,12 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.models.job import CompressionAlgorithm, CompressionJob, JobStatus
-from app.schemas.file_jobs import DeleteResponse, JobStatusResponse, UploadAcceptedResponse
+from app.schemas import (
+    BulkDeleteCompletedResponse,
+    DeleteResponse,
+    JobStatusResponse,
+    UploadAcceptedResponse,
+)
 from app.services.compression_queue import compression_queue_service
 from app.services.storage import storage_service
 from app.state import job_registry
@@ -103,6 +108,25 @@ def download_archive(job_id: str) -> FileResponse:
 
     media_type = "application/zip" if job.algorithm is CompressionAlgorithm.ZIP else "application/x-7z-compressed"
     return FileResponse(path=job.compressed_path, filename=job.archive_filename, media_type=media_type)
+
+
+@router.delete("/completed", response_model=BulkDeleteCompletedResponse)
+def delete_completed_jobs() -> BulkDeleteCompletedResponse:
+    completed_jobs = [job for job in job_registry.list_all() if job.status is JobStatus.COMPLETED]
+
+    deleted_files = 0
+    for job in completed_jobs:
+        original_deleted = storage_service.delete_file(job.original_path)
+        compressed_deleted = storage_service.delete_file(job.compressed_path)
+
+        if original_deleted:
+            deleted_files += 1
+        if compressed_deleted:
+            deleted_files += 1
+
+        job_registry.remove(job.job_id)
+
+    return BulkDeleteCompletedResponse(deleted_jobs=len(completed_jobs), deleted_files=deleted_files)
 
 
 @router.delete("/{job_id}", response_model=DeleteResponse)

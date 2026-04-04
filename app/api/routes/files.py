@@ -1,3 +1,17 @@
+"""
+API endpoints for file and compression job management.
+
+Prefix: /files
+
+Available routes:
+  GET    /files                   – List all jobs.
+  POST   /files                   – Upload a file and enqueue its compression.
+  GET    /files/{job_id}/status   – Get the status of a job.
+  GET    /files/{job_id}/download – Download the compressed archive.
+  DELETE /files/completed         – Delete all completed jobs.
+  DELETE /files/{job_id}          – Delete the files for a specific job.
+"""
+
 from uuid import uuid4
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
@@ -18,6 +32,7 @@ router = APIRouter(prefix="/files", tags=["files"])
 
 
 def _get_job_or_404(job_id: str) -> CompressionJob:
+    """Return the job or raise HTTP 404 if it does not exist."""
     job = job_registry.get(job_id)
     if job is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found.")
@@ -25,11 +40,13 @@ def _get_job_or_404(job_id: str) -> CompressionJob:
 
 
 def _build_archive_filename(original_filename: str, algorithm: CompressionAlgorithm) -> str:
+    """Build the archive filename by appending the algorithm extension."""
     ext = "zip" if algorithm is CompressionAlgorithm.ZIP else "7z"
     return f"{original_filename}.{ext}"
 
 
 def _to_status_response(job: CompressionJob) -> JobStatusResponse:
+    """Convert a ``CompressionJob`` into its status response schema."""
     return JobStatusResponse(
         job_id=job.job_id,
         filename=job.original_filename,
@@ -45,6 +62,7 @@ def _to_status_response(job: CompressionJob) -> JobStatusResponse:
 
 @router.get("", response_model=list[JobStatusResponse])
 def list_jobs() -> list[JobStatusResponse]:
+    """List all compression jobs ordered by creation date."""
     jobs = sorted(job_registry.list_all(), key=lambda job: job.created_at)
     return [_to_status_response(job) for job in jobs]
 
@@ -55,6 +73,15 @@ async def upload_file(
     algorithm: CompressionAlgorithm = Form(CompressionAlgorithm.SEVENZ),
     level: int = Form(5, ge=1, le=5),
 ) -> UploadAcceptedResponse:
+    """
+    Upload a file and enqueue it for background compression.
+
+    - **file**: File to compress (required).
+    - **algorithm**: Compression algorithm (`zip` or `7z`). Defaults to `7z`.
+    - **level**: Compression level from 1 (fastest) to 5 (maximum). Defaults to 5.
+
+    Returns 202 Accepted with the details of the created job.
+    """
     if not file.filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A file name is required.")
 
@@ -89,12 +116,19 @@ async def upload_file(
 
 @router.get("/{job_id}/status", response_model=JobStatusResponse)
 def get_job_status(job_id: str) -> JobStatusResponse:
+    """Return the current status of the compression job identified by ``job_id``."""
     job = _get_job_or_404(job_id)
     return _to_status_response(job)
 
 
 @router.get("/{job_id}/download")
 def download_archive(job_id: str) -> FileResponse:
+    """
+    Download the compressed archive of a completed job.
+
+    Returns 409 Conflict if compression is still in progress or has failed.
+    Returns 404 Not Found if the archive no longer exists on disk.
+    """
     job = _get_job_or_404(job_id)
 
     if job.status in {JobStatus.QUEUED, JobStatus.COMPRESSING}:
@@ -112,6 +146,11 @@ def download_archive(job_id: str) -> FileResponse:
 
 @router.delete("/completed", response_model=BulkDeleteCompletedResponse)
 def delete_completed_jobs() -> BulkDeleteCompletedResponse:
+    """
+    Delete all COMPLETED jobs and their associated files.
+
+    Returns a summary with the number of jobs and files removed.
+    """
     completed_jobs = [job for job in job_registry.list_all() if job.status is JobStatus.COMPLETED]
 
     deleted_files = 0
@@ -131,6 +170,11 @@ def delete_completed_jobs() -> BulkDeleteCompletedResponse:
 
 @router.delete("/{job_id}", response_model=DeleteResponse)
 def delete_job_files(job_id: str) -> DeleteResponse:
+    """
+    Delete the files of a specific job and remove it from the registry.
+
+    Returns 409 Conflict if compression is still in progress.
+    """
     job = _get_job_or_404(job_id)
 
     if job.status in {JobStatus.QUEUED, JobStatus.COMPRESSING}:

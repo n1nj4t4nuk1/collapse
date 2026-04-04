@@ -1,3 +1,5 @@
+"""Response schema with the full status of a compression job."""
+
 from datetime import datetime
 
 from pydantic import BaseModel, Field
@@ -6,6 +8,8 @@ from app.models.job import CompressionAlgorithm, JobStatus
 
 
 class JobStatusResponse(BaseModel):
+    """Represents the current status and metadata of a compression job."""
+
     job_id: str = Field(description="Unique identifier for the compression job.")
     filename: str = Field(description="Original uploaded file name.")
     status: JobStatus = Field(description="Current status of the compression job.")

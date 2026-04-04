@@ -75,7 +75,8 @@ def run() -> None:
     args = _parse_args()
 
     host = args.host or os.environ.get("COLLAPSE_HOST") or DEFAULT_HOST
-    port = args.port or int(os.environ.get("COLLAPSE_PORT", DEFAULT_PORT))
+    _env_port = os.environ.get("COLLAPSE_PORT")
+    port = args.port or (int(_env_port) if _env_port else DEFAULT_PORT)
 
     uvicorn.run("app.main:app", host=host, port=port, reload=False)
 

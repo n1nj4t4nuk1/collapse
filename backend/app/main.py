@@ -12,13 +12,18 @@ Server host and port can be configured through (highest priority first):
 import argparse
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 import app.container as _di
 from app.infrastructure.api.routes.files import router as files_router
+
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 8000
@@ -51,6 +56,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(files_router)
+
+if STATIC_DIR.is_dir():
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        """Serve the Vue SPA. Static assets are served directly; all other
+        paths return index.html for client-side routing."""
+        file = STATIC_DIR / full_path
+        if file.is_file():
+            return FileResponse(file)
+        return FileResponse(STATIC_DIR / "index.html")
 
 
 def _parse_args() -> argparse.Namespace:

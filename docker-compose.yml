@@ -1,11 +1,11 @@
 services:
-  collapse-api:
+  collapse:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: collapse-api
+    container_name: collapse
     ports:
       - "8000:8000"
     volumes:
-      - ./storage:/app/storage
+      - ./backend/storage:/app/storage
     restart: unless-stopped

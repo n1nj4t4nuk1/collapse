@@ -1,16 +1,12 @@
 """Integration tests for the /files API endpoints."""
 
-import io
-import zipfile
 from pathlib import Path
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
 
-from app.main import app
-from app.models.job import CompressionAlgorithm, CompressionJob, JobStatus
-from app.state.in_memory_registry import InMemoryJobRegistry
+import app.container as container_mod
+from app.domain.models.job import CompressionAlgorithm, CompressionJob, JobStatus
 
 
 def _make_job(
@@ -30,8 +26,6 @@ def _make_job(
         level=3,
         status=status,
     )
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -62,10 +56,10 @@ class TestListJobs:
 # ---------------------------------------------------------------------------
 
 class TestUploadFile:
-    def test_upload_returns_202(self, client):
+    def test_upload_returns_202(self, client, fresh_container):
         with (
-            patch("app.api.routes.files.storage_service.save_upload", new_callable=AsyncMock),
-            patch("app.api.routes.files.compression_queue_service.enqueue", new_callable=AsyncMock),
+            patch.object(fresh_container.file_storage, "save_file"),
+            patch.object(fresh_container.compression_queue, "enqueue", new_callable=AsyncMock),
         ):
             r = client.post(
                 "/files",
@@ -80,18 +74,16 @@ class TestUploadFile:
         assert body["status"] == "queued"
 
     def test_upload_empty_filename_returns_error(self, client):
-        # An empty filename causes FastAPI multipart validation to fail with 422
-        # before the route handler runs.
         r = client.post(
             "/files",
             files={"file": ("", b"content", "text/plain")},
         )
         assert r.status_code in (400, 422)
 
-    def test_upload_level_out_of_range_returns_422(self, client):
+    def test_upload_level_out_of_range_returns_422(self, client, fresh_container):
         with (
-            patch("app.api.routes.files.storage_service.save_upload", new_callable=AsyncMock),
-            patch("app.api.routes.files.compression_queue_service.enqueue", new_callable=AsyncMock),
+            patch.object(fresh_container.file_storage, "save_file"),
+            patch.object(fresh_container.compression_queue, "enqueue", new_callable=AsyncMock),
         ):
             r = client.post(
                 "/files",
@@ -100,10 +92,10 @@ class TestUploadFile:
             )
         assert r.status_code == 422
 
-    def test_upload_default_algorithm_is_7z(self, client):
+    def test_upload_default_algorithm_is_7z(self, client, fresh_container):
         with (
-            patch("app.api.routes.files.storage_service.save_upload", new_callable=AsyncMock),
-            patch("app.api.routes.files.compression_queue_service.enqueue", new_callable=AsyncMock),
+            patch.object(fresh_container.file_storage, "save_file"),
+            patch.object(fresh_container.compression_queue, "enqueue", new_callable=AsyncMock),
         ):
             r = client.post(
                 "/files",
@@ -136,7 +128,7 @@ class TestGetJobStatus:
 class TestDownloadArchive:
     def test_download_completed_job(self, client, fresh_registry, tmp_path):
         archive = tmp_path / "out.zip"
-        archive.write_bytes(b"PK\x03\x04")  # minimal zip magic
+        archive.write_bytes(b"PK\x03\x04")
         job = _make_job("j1", status=JobStatus.COMPLETED, compressed_path=archive)
         fresh_registry.add(job)
         r = client.get("/files/j1/download")

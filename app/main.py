@@ -1,5 +1,4 @@
-"""
-Main entry point for the Collapse application.
+"""Main entry point for the Collapse application.
 
 Initialises the FastAPI app, registers routers, and manages the server
 lifecycle: storage directory setup and compression queue worker startup/shutdown.
@@ -14,12 +13,11 @@ import argparse
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
 import uvicorn
+from fastapi import FastAPI
 
-from app.api.routes.files import router as files_router
-from app.services.compression_queue import compression_queue_service
-from app.services.storage import storage_service
+import app.container as _di
+from app.infrastructure.api.routes.files import router as files_router
 
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 8000
@@ -27,16 +25,15 @@ DEFAULT_PORT = 8000
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """
-    Application lifespan context manager.
+    """Application lifespan context manager.
 
     On startup: ensures storage directories exist and starts the compression
     queue worker. On shutdown: stops the worker gracefully.
     """
-    storage_service.ensure_directories()
-    await compression_queue_service.start()
+    _di.container.file_storage.ensure_directories()
+    await _di.container.compression_queue.start()
     yield
-    await compression_queue_service.stop()
+    await _di.container.compression_queue.stop()
 
 
 app = FastAPI(
@@ -50,7 +47,7 @@ app.include_router(files_router)
 
 def _parse_args() -> argparse.Namespace:
     """Parse CLI arguments for host and port."""
-    parser = argparse.ArgumentParser(description="Collapse – file compression API server.")
+    parser = argparse.ArgumentParser(description="Collapse \u2013 file compression API server.")
     parser.add_argument(
         "--host",
         default=None,
@@ -66,8 +63,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def run() -> None:
-    """
-    Start the Uvicorn server.
+    """Start the Uvicorn server.
 
     Resolution order for host and port:
       CLI argument > environment variable (COLLAPSE_HOST / COLLAPSE_PORT) > built-in default.

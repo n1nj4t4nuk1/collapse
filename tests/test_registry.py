@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from app.models.job import CompressionAlgorithm, CompressionJob, JobStatus
-from app.state.in_memory_registry import InMemoryJobRegistry
+from app.domain.models.job import CompressionAlgorithm, CompressionJob, JobStatus
+from app.infrastructure.persistence.in_memory_job_registry import InMemoryJobRegistry
 
 
 def _make_job(job_id: str = "job1") -> CompressionJob:

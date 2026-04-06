@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from app.models.job import CompressionAlgorithm, CompressionJob, JobStatus
+from app.domain.models.job import CompressionAlgorithm, CompressionJob, JobStatus
 
 
 def _make_job(**overrides) -> CompressionJob:

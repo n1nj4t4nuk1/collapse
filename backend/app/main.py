@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 import app.container as _di
 from app.infrastructure.api.routes.files import router as files_router
@@ -41,6 +42,13 @@ app = FastAPI(
     description="A simple file compression API.",
     version="0.1.0",
     lifespan=lifespan,
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.include_router(files_router)
 

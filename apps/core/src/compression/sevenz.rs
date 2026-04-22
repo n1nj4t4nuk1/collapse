@@ -129,4 +129,79 @@ mod tests {
             assert!(archive.exists(), "level {level} failed");
         }
     }
+
+    // -- extract_7z tests --
+
+    #[test]
+    fn extract_7z_returns_file_list() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let src = source_file(dir.path());
+        let archive = dir.path().join("out.7z");
+        compress_7z(&src, &archive, "sample.txt", 1).unwrap();
+
+        let out = dir.path().join("extracted");
+        let files = extract_7z(&archive, &out).unwrap();
+        assert_eq!(files, vec!["sample.txt"]);
+    }
+
+    #[test]
+    fn extract_7z_content_matches_original() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let src = source_file(dir.path());
+        let archive = dir.path().join("out.7z");
+        compress_7z(&src, &archive, "sample.txt", 3).unwrap();
+
+        let out = dir.path().join("extracted");
+        extract_7z(&archive, &out).unwrap();
+        let content = std::fs::read(out.join("sample.txt")).unwrap();
+        assert_eq!(content, SAMPLE);
+    }
+
+    #[test]
+    fn extract_7z_preserves_arcname() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let src = source_file(dir.path());
+        let archive = dir.path().join("out.7z");
+        compress_7z(&src, &archive, "renamed.dat", 1).unwrap();
+
+        let out = dir.path().join("extracted");
+        let files = extract_7z(&archive, &out).unwrap();
+        assert_eq!(files, vec!["renamed.dat"]);
+        assert!(out.join("renamed.dat").exists());
+    }
+
+    #[test]
+    fn extract_7z_creates_output_dir() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let src = source_file(dir.path());
+        let archive = dir.path().join("out.7z");
+        compress_7z(&src, &archive, "sample.txt", 1).unwrap();
+
+        let out = dir.path().join("deep").join("nested").join("dir");
+        assert!(!out.exists());
+        extract_7z(&archive, &out).unwrap();
+        assert!(out.join("sample.txt").exists());
+    }
+
+    #[test]
+    fn extract_7z_nonexistent_archive_errors() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let result = extract_7z(&dir.path().join("nope.7z"), &dir.path().join("out"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn extract_7z_roundtrip_all_levels() {
+        for level in 1..=5 {
+            let dir = tempfile::TempDir::new().unwrap();
+            let src = source_file(dir.path());
+            let archive = dir.path().join(format!("out_l{level}.7z"));
+            compress_7z(&src, &archive, "sample.txt", level).unwrap();
+
+            let out = dir.path().join(format!("extracted_l{level}"));
+            extract_7z(&archive, &out).unwrap();
+            let content = std::fs::read(out.join("sample.txt")).unwrap();
+            assert_eq!(content, SAMPLE, "roundtrip failed at level {level}");
+        }
+    }
 }

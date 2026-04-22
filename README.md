@@ -1,4 +1,4 @@
-# Collapse
+# 🌟 Collapse
 
 Collapse is a file compression toolkit that supports compressing and extracting files using 7z (LZMA2) and ZIP (Deflate) algorithms. It ships as a REST API, a web frontend, a CLI tool, and a cross-platform desktop app.
 

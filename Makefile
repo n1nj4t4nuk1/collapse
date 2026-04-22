@@ -1,4 +1,4 @@
-.PHONY: api web aio cli \
+.PHONY: api web aio cli desktop \
        api/docker/build web/docker/build aio/docker/build
 
 # Build targets
@@ -13,6 +13,10 @@ web:
 
 aio: web
 	cargo build --release -p collapse-aio
+
+desktop:
+	cd apps/desktop && npm ci && npm run build
+	cargo build --release -p collapse-desktop
 
 # Docker targets
 api/docker/build:

@@ -15,6 +15,7 @@ COPY apps/core apps/core
 COPY apps/api apps/api
 COPY apps/aio apps/aio
 COPY apps/cli apps/cli
+COPY apps/desktop/src-tauri apps/desktop/src-tauri
 
 RUN cargo build --release -p collapse-aio
 

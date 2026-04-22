@@ -5,4 +5,5 @@ members = [
     "apps/api",
     "apps/aio",
     "apps/cli",
+    "apps/desktop/src-tauri",
 ]

@@ -9,7 +9,7 @@ The project is a Rust workspace organized as a monorepo under `apps/`:
 | Crate | Path | Description |
 |-------|------|-------------|
 | `collapse-core` | `apps/core` | Shared compression library (7z, ZIP) |
-| `collapse-cloud` | `apps/cloud` | HTTP backend built with Axum |
+| `collapse-api` | `apps/api` | HTTP backend built with Axum |
 | `collapse-cli` | `apps/cli` | CLI tool for local compression |
 | Frontend | `apps/web` | Vue 3 SPA |
 
@@ -40,10 +40,10 @@ cd apps/web && npm install && npm run build
 
 ## Run
 
-### Cloud (HTTP server)
+### API (HTTP server)
 
 ```bash
-cargo run -p collapse-cloud -- --host 0.0.0.0 --port 8000
+cargo run -p collapse-api -- --host 0.0.0.0 --port 8000
 ```
 
 Host and port can also be set via `HOST` and `PORT` environment variables. Defaults to `0.0.0.0:8000`.
@@ -59,12 +59,12 @@ cargo run -p collapse-cli
 ## Tests
 
 ```bash
-# Run all tests (65 tests across core and cloud)
+# Run all tests (65 tests across core and api)
 cargo test
 
 # Run tests for a specific crate
 cargo test -p collapse-core
-cargo test -p collapse-cloud
+cargo test -p collapse-api
 ```
 
 ## API Endpoints

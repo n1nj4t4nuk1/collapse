@@ -1,5 +1,5 @@
 [package]
-name = "collapse-cloud"
+name = "collapse-api"
 version = "0.1.0"
 edition = "2021"
 

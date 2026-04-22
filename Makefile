@@ -1,7 +1,7 @@
-.PHONY: cloud/docker/build web/docker/build
+.PHONY: api/docker/build web/docker/build
 
-cloud/docker/build:
-	docker build -f apps/cloud/Dockerfile -t collapse-cloud .
+api/docker/build:
+	docker build -f apps/api/Dockerfile -t collapse-api .
 
 web/docker/build:
 	docker build -f apps/web/Dockerfile -t collapse-web .

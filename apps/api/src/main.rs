@@ -33,7 +33,7 @@ const DEFAULT_PORT: u16 = 8000;
 
 #[derive(Parser)]
 #[command(
-    name = "collapse-cloud",
+    name = "collapse-api",
     about = "Collapse – file compression API server."
 )]
 struct Cli {

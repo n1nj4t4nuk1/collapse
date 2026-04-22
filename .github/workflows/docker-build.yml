@@ -43,3 +43,21 @@ jobs:
           push: false
           load: false
           tags: collapse-web:ci
+
+  docker-build-aio:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build aio image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/aio/Dockerfile
+          push: false
+          load: false
+          tags: collapse-aio:ci

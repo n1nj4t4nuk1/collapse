@@ -10,6 +10,7 @@ The project is a Rust workspace organized as a monorepo under `apps/`:
 |-------|------|-------------|
 | `collapse-core` | `apps/core` | Shared compression library (7z, ZIP) |
 | `collapse-api` | `apps/api` | HTTP backend built with Axum |
+| `collapse-aio` | `apps/aio` | All-in-one server (API + frontend) |
 | `collapse-cli` | `apps/cli` | CLI tool for local compression |
 | Frontend | `apps/web` | Vue 3 SPA |
 
@@ -31,30 +32,43 @@ The project is a Rust workspace organized as a monorepo under `apps/`:
 ## Build
 
 ```bash
-# Build all Rust crates
-cargo build --release
+# Build individual apps
+make api/build
+make web/build
+make cli/build
 
-# Build the frontend
-cd apps/web && npm install && npm run build
+# Build AIO (frontend + backend)
+make aio/build
+
+# Docker images
+make api/docker/build
+make web/docker/build
+make aio/docker/build
 ```
 
 ## Run
 
-### API (HTTP server)
+### API (HTTP server only)
 
 ```bash
 cargo run -p collapse-api -- --host 0.0.0.0 --port 8000
 ```
 
-Host and port can also be set via `HOST` and `PORT` environment variables. Defaults to `0.0.0.0:8000`.
+### AIO (API + frontend)
 
-When `apps/web/dist` exists, the server serves the Vue frontend at `/` automatically.
+```bash
+cargo run -p collapse-aio -- --host 0.0.0.0 --port 8000
+```
+
+Serves the Vue frontend at `/` and the API at `/files`. Set `COLLAPSE_STATIC_DIR` to override the static files path (defaults to `static/`).
 
 ### CLI
 
 ```bash
 cargo run -p collapse-cli
 ```
+
+Host and port can be set via `--host`/`--port` flags, `COLLAPSE_HOST`/`COLLAPSE_PORT` env vars, or defaults to `0.0.0.0:8000`.
 
 ## Tests
 

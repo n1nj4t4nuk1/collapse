@@ -14,8 +14,8 @@ const DEFAULT_PORT: u16 = 8000;
 
 #[derive(Parser)]
 #[command(
-    name = "collapse-api",
-    about = "Collapse – file compression API server."
+    name = "collapse-aio",
+    about = "Collapse – all-in-one server (API + frontend)."
 )]
 struct Cli {
     /// Host address to bind to (overrides COLLAPSE_HOST env var).
@@ -66,18 +66,19 @@ async fn main() {
 
     let mut app = build_router(app_state);
 
-    let static_dir = PathBuf::from("static");
-    if static_dir.is_dir() {
-        let serve = ServeDir::new(&static_dir)
-            .not_found_service(ServeFile::new(static_dir.join("index.html")));
-        app = app.fallback_service(serve);
-    }
+    let static_dir = env::var("COLLAPSE_STATIC_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("static"));
+
+    let serve = ServeDir::new(&static_dir)
+        .not_found_service(ServeFile::new(static_dir.join("index.html")));
+    app = app.fallback_service(serve);
 
     let addr: SocketAddr = format!("{host}:{port}")
         .parse()
         .expect("Invalid address");
 
-    println!("Collapse listening on {addr}");
+    println!("Collapse AIO listening on {addr}");
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await

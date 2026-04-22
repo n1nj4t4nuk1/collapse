@@ -4,6 +4,7 @@ WORKDIR /src
 COPY Cargo.toml ./
 COPY apps/core apps/core
 COPY apps/api apps/api
+COPY apps/aio apps/aio
 COPY apps/cli apps/cli
 
 RUN cargo build --release -p collapse-api

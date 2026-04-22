@@ -11,3 +11,6 @@ storage/
 node_modules/
 dist/
 .vite/
+
+# Rust
+target/

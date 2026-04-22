@@ -1,1 +1,0 @@
-"""Collapse application package."""

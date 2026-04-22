@@ -1,6 +1,6 @@
 # Architecture
 
-Collapse is a Rust workspace monorepo for file compression. It accepts uploads, compresses them in the background, and lets clients download the result.
+Collapse is a Rust workspace monorepo for file compression and extraction. It provides multiple interfaces -- REST API, web frontend, CLI, and desktop app -- all sharing the same core library.
 
 ## Project layout
 
@@ -9,11 +9,14 @@ collapse/
 ├── Cargo.toml              # Workspace root
 ├── Makefile                 # Build & Docker targets
 ├── apps/
-│   ├── core/               # collapse-core   (lib)
-│   ├── api/                # collapse-api    (lib + bin)
-│   ├── aio/                # collapse-aio    (bin)
-│   ├── cli/                # collapse-cli    (bin)
-│   ��── web/                # Vue 3 SPA (not a Rust crate)
+│   ├── core/               # collapse-core    (lib)
+│   ├── api/                # collapse-api     (lib + bin)
+│   ├── aio/                # collapse-aio     (bin)
+│   ├── cli/                # collapse-cli     (bin)
+│   ├── desktop/            # collapse-desktop (Tauri v2 app)
+│   │   ├── src/            #   Vue 3 frontend
+│   │   └── src-tauri/      #   Rust backend (Tauri commands)
+│   └── web/                # Vue 3 SPA (not a Rust crate)
 ├── docs/
 └── .github/workflows/
 ```
@@ -23,13 +26,12 @@ collapse/
 ```
 collapse-core          (no internal deps)
     ^
-    |
-collapse-api           (depends on core)
-    ^
-    |
-collapse-aio           (depends on api, which re-exports core)
-
-collapse-cli           (depends on core)
+    ├── collapse-api       (depends on core)
+    │       ^
+    │       └── collapse-aio   (depends on api, which re-exports core)
+    │
+    ├── collapse-cli       (depends on core)
+    └── collapse-desktop   (depends on core)
 ```
 
 ## Crate responsibilities
@@ -38,11 +40,14 @@ collapse-cli           (depends on core)
 
 Pure library, no I/O beyond reading/writing files. Contains:
 
-- **`Algorithm` enum** -- `SevenZ` / `Zip`, with serde rename, `Display`, `FromStr`, extension and MIME type helpers.
+- **`Algorithm` enum** -- `SevenZ` / `Zip`, with serde rename, `Display`, `FromStr`, `from_extension()`, extension and MIME type helpers.
 - **`CompressionError`** -- `Io`, `Failed`, `InvalidLevel` via `thiserror`.
 - **`compress(source, output, arcname, algorithm, level)`** -- dispatcher that validates the level (1--5) and delegates to the algorithm-specific function.
 - **`compress_7z`** -- wraps `sevenz-rust2` (`SevenZWriter`).
 - **`compress_zip`** -- wraps `zip` crate (`ZipWriter` + Deflate).
+- **`extract(archive, output_dir)`** -- dispatcher that auto-detects format by file extension and delegates to the algorithm-specific extractor. Returns `Vec<String>` of extracted file names.
+- **`extract_zip`** -- extracts ZIP archives using the `zip` crate.
+- **`extract_7z`** -- extracts 7z archives using `sevenz-rust2`.
 
 API levels 1--5 are mapped to internal presets `[1, 3, 5, 7, 9]` for both algorithms.
 
@@ -80,7 +85,21 @@ The static directory defaults to `static/` and is overridable via `COLLAPSE_STAT
 
 ### collapse-cli (`apps/cli`)
 
-Placeholder for a command-line compression tool. Depends on `collapse-core`.
+Command-line tool for compression and extraction. Uses clap with two subcommands:
+
+- **`compress` (alias `c`)** -- compress a file with `--protocol` (zip/7z) and `--level` (1--5). Auto-generates output name if not specified.
+- **`extract` (alias `e`)** -- extract an archive to a directory. Auto-detects format by extension.
+
+### collapse-desktop (`apps/desktop`)
+
+Cross-platform desktop app built with **Tauri v2**. Keka-style UI with:
+
+- **Drag-and-drop** file input via Tauri's webview drag-drop API.
+- **Auto-detection**: files with `.zip`/`.7z` extension trigger extraction mode; all other files trigger compression mode.
+- **Algorithm/level selection** for compression (ZIP Deflate or 7z LZMA2, levels 1--5).
+- **Native file dialogs** via `tauri-plugin-dialog` for open/save.
+
+The frontend is a Vue 3 SPA (`apps/desktop/src/`) that communicates with the Rust backend (`apps/desktop/src-tauri/`) via Tauri's `invoke()` IPC. The Rust backend calls `collapse-core` directly -- no HTTP involved.
 
 ### Frontend (`apps/web`)
 

@@ -12,6 +12,7 @@ All commands run from the repository root.
 | `make cli` | `cargo build --release -p collapse-cli` |
 | `make web` | `cd apps/web && npm ci && npm run build` |
 | `make aio` | Builds frontend first, then `cargo build --release -p collapse-aio` |
+| `make desktop` | `cd apps/desktop && npm ci && npm run build` then `cargo build --release -p collapse-desktop` |
 
 ### Docker targets
 
@@ -78,12 +79,14 @@ CLI flags `--host` and `--port` take precedence over env vars.
 Triggers on push to `main`/`master` and on PRs.
 
 ```
-test ──> build (matrix: 4 apps) ──> release-build (matrix: 4 apps)
+test ──> build (matrix: 5 apps) ──> release-build (matrix: 5 apps)
 ```
 
 1. **test** -- `cargo test` for the entire workspace.
-2. **build** -- `cargo build -p <package>` per app in parallel.
+2. **build** -- `cargo build -p <package>` per app in parallel (core, api, aio, cli, desktop).
 3. **release-build** -- `cargo build --release -p <package>` per app in parallel.
+
+All stages install Tauri system dependencies (`libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf`) for the desktop build.
 
 ### docker-build.yml
 

@@ -3,7 +3,11 @@
 ## Prerequisites
 
 - Rust 1.88+
-- Node.js 18+ (for the frontend)
+- Node.js 18+ (for the frontend and desktop app)
+- Tauri v2 system dependencies (for desktop app only):
+  - **macOS**: Xcode Command Line Tools (`xcode-select --install`)
+  - **Linux**: `sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf`
+  - **Windows**: WebView2 (pre-installed on Windows 10/11)
 
 ## Getting started
 
@@ -26,23 +30,33 @@ npm run dev
 
 The frontend dev server (Vite) runs on `http://localhost:5173` and proxies nothing by default -- it calls the API at `http://localhost:8000` (set via `VITE_API_URL`).
 
+### Running the desktop app
+
+```bash
+cd apps/desktop
+npm install
+npx tauri dev
+```
+
+This starts Vite for the frontend and compiles the Tauri Rust backend with hot-reload.
+
 ## Running tests
 
 ```bash
-# All tests (65 tests across core and api)
+# All tests (84 tests across core and api)
 cargo test
 
 # Single crate
-cargo test -p collapse-core    # 15 tests
+cargo test -p collapse-core    # 34 tests
 cargo test -p collapse-api     # 50 tests (unit + integration)
 ```
 
 ### Test structure
 
 **collapse-core** -- unit tests in each module:
-- `compression::tests` -- Algorithm enum, level validation (8 tests)
-- `compression::zip::tests` -- ZIP roundtrip (4 tests)
-- `compression::sevenz::tests` -- 7z roundtrip (4 tests, uses `sevenz_rust2::decompress` to verify)
+- `compression::tests` -- Algorithm enum, level validation, `from_extension()`, extract dispatcher (15 tests)
+- `compression::zip::tests` -- ZIP compress & extract roundtrips (10 tests)
+- `compression::sevenz::tests` -- 7z compress & extract roundtrips (10 tests, uses `sevenz_rust2::decompress` to verify)
 
 **collapse-api** -- unit tests per module + integration tests:
 - `models::tests` -- JobStatus serde, timestamps (5 tests)
@@ -57,9 +71,9 @@ Integration tests build the Axum router directly and send synthetic HTTP request
 ```
 apps/core/src/
 ├── lib.rs                  # Re-exports compression module
-└── compression.rs          # Algorithm enum, CompressionError, compress() dispatcher
-    ├── zip.rs              # compress_zip() using zip crate
-    └── sevenz.rs           # compress_7z() using sevenz-rust2
+└── compression.rs          # Algorithm enum, CompressionError, compress()/extract() dispatchers
+    ├── zip.rs              # compress_zip(), extract_zip()
+    └── sevenz.rs           # compress_7z(), extract_7z()
 
 apps/api/src/
 ├── lib.rs                  # Module declarations + build_router() (public API)
@@ -79,7 +93,20 @@ apps/aio/src/
 └── main.rs                 # Same as api but always serves frontend
 
 apps/cli/src/
-└── main.rs                 # Placeholder
+└── main.rs                 # Subcommands: compress (c), extract (e)
+
+apps/desktop/
+├── src/                    # Vue 3 frontend
+│   ├── main.js
+│   └── App.vue             # Keka-style UI with drag-and-drop
+├── src-tauri/              # Tauri v2 Rust backend
+│   ├── Cargo.toml
+│   ├── src/lib.rs          # compress_file, extract_file commands
+│   ├── src/main.rs         # Entry point
+│   └── tauri.conf.json     # Tauri configuration
+├── package.json
+├── vite.config.js
+└── index.html
 
 apps/web/src/
 ├── main.js                 # Vue app entry
@@ -93,11 +120,11 @@ apps/web/src/
 
 ## Adding a new compression algorithm
 
-1. Add a variant to `Algorithm` in `apps/core/src/compression.rs` (with serde rename, `extension()`, `media_type()`, `Display`, `FromStr`).
-2. Create `apps/core/src/compression/<name>.rs` with a `compress_<name>()` function.
-3. Add `mod <name>;` to `apps/core/src/compression.rs` and a new arm in the `compress()` match.
+1. Add a variant to `Algorithm` in `apps/core/src/compression.rs` (with serde rename, `extension()`, `media_type()`, `Display`, `FromStr`, `from_extension()`).
+2. Create `apps/core/src/compression/<name>.rs` with `compress_<name>()` and `extract_<name>()` functions.
+3. Add `mod <name>;` to `apps/core/src/compression.rs` and new arms in the `compress()` and `extract()` match blocks.
 4. Write tests in the new module.
-5. No changes needed in the API -- it picks up new algorithms automatically through the `Algorithm` enum.
+5. No changes needed in the API, CLI, or desktop app -- they pick up new algorithms automatically through the `Algorithm` enum.
 
 ## Adding a new API endpoint
 

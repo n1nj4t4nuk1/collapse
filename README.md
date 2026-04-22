@@ -1,6 +1,6 @@
 # Collapse
 
-Collapse is a file compression web service that accepts file uploads, compresses them using configurable algorithms, and serves the results through a REST API and a Vue 3 frontend.
+Collapse is a file compression toolkit that supports compressing and extracting files using 7z (LZMA2) and ZIP (Deflate) algorithms. It ships as a REST API, a web frontend, a CLI tool, and a cross-platform desktop app.
 
 ## Architecture
 
@@ -8,28 +8,28 @@ The project is a Rust workspace organized as a monorepo under `apps/`:
 
 | Crate | Path | Description |
 |-------|------|-------------|
-| `collapse-core` | `apps/core` | Shared compression library (7z, ZIP) |
+| `collapse-core` | `apps/core` | Shared compression & extraction library (7z, ZIP) |
 | `collapse-api` | `apps/api` | HTTP backend built with Axum |
 | `collapse-aio` | `apps/aio` | All-in-one server (API + frontend) |
-| `collapse-cli` | `apps/cli` | CLI tool for local compression |
+| `collapse-cli` | `apps/cli` | CLI tool for compression & extraction |
+| `collapse-desktop` | `apps/desktop` | Cross-platform desktop app (Tauri v2) |
 | Frontend | `apps/web` | Vue 3 SPA |
 
 ## Features
 
-- Upload one file per request.
-- Choose between **7z** (LZMA2) and **zip** (Deflate) compression.
-- Choose a compression level from **1** (fastest) to **5** (maximum).
-- Track jobs entirely in memory -- no database required.
-- Download the generated archive.
-- Delete individual jobs or bulk-delete all completed jobs.
+- **Compress** files using **7z** (LZMA2) or **ZIP** (Deflate) with levels 1--5.
+- **Extract** archives (auto-detects format by extension).
+- REST API with background job processing (in-memory, no database).
 - Vue 3 frontend with real-time job status tracking.
+- CLI with `compress`/`extract` subcommands.
+- Desktop app (Tauri v2) with drag-and-drop, Keka-style UI (macOS, Windows, Linux).
 
 ## CI
 
 GitHub Actions pipeline (`test_and_build.yml`) runs on every push to `main` and on PRs:
 
 1. **Test** -- runs `cargo test` for the entire workspace.
-2. **Build** -- debug build per app in parallel (`collapse-core`, `collapse-api`, `collapse-aio`, `collapse-cli`).
+2. **Build** -- debug build per app in parallel (`collapse-core`, `collapse-api`, `collapse-aio`, `collapse-cli`, `collapse-desktop`).
 3. **Release build** -- `cargo build --release` per app in parallel.
 
 Docker images are validated separately via `docker-build.yml`.
@@ -37,7 +37,8 @@ Docker images are validated separately via `docker-build.yml`.
 ## Requirements
 
 - Rust 1.88+ (2021 edition)
-- Node.js 18+ (for building the frontend)
+- Node.js 18+ (for building the frontend and desktop app)
+- Tauri v2 system dependencies (for desktop app -- see [development docs](docs/development.md))
 
 ## Build
 
@@ -46,6 +47,7 @@ Docker images are validated separately via `docker-build.yml`.
 make api
 make web
 make cli
+make desktop
 
 # Build AIO (frontend + backend)
 make aio
@@ -75,20 +77,36 @@ Serves the Vue frontend at `/` and the API at `/files`. Set `COLLAPSE_STATIC_DIR
 ### CLI
 
 ```bash
-cargo run -p collapse-cli
+# Compress
+collapse compress archivo.txt --protocol zip --level 3
+
+# Extract
+collapse extract archivo.zip --output ./destino
+
+# Short aliases
+collapse c archivo.txt
+collapse e archivo.7z
 ```
 
-Host and port can be set via `--host`/`--port` flags, `COLLAPSE_HOST`/`COLLAPSE_PORT` env vars, or defaults to `0.0.0.0:8000`.
+### Desktop
+
+```bash
+# Development mode (hot-reload)
+cd apps/desktop && npx tauri dev
+
+# Release build
+make desktop
+```
 
 ## Tests
 
 ```bash
-# Run all tests (65 tests across core and api)
+# Run all tests (84 tests across core and api)
 cargo test
 
 # Run tests for a specific crate
-cargo test -p collapse-core
-cargo test -p collapse-api
+cargo test -p collapse-core    # 34 tests
+cargo test -p collapse-api     # 50 tests
 ```
 
 ## API Endpoints
@@ -146,6 +164,15 @@ Deletes the original uploaded file and the compressed archive. Cannot be called 
 ### `DELETE /files/completed`
 
 Deletes all jobs with status `completed`, removes their original and compressed files from storage, and returns a summary with `deleted_jobs` and `deleted_files`.
+
+## Documentation
+
+See the [`docs/`](docs/) folder for detailed documentation:
+
+- [Architecture](docs/architecture.md) -- crate responsibilities, dependency graph, request flow
+- [API Reference](docs/api.md) -- all HTTP endpoints with request/response examples
+- [Deployment](docs/deployment.md) -- Docker images, Makefile targets, environment variables, CI
+- [Development](docs/development.md) -- getting started, test structure, adding algorithms
 
 ## Notes
 

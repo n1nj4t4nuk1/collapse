@@ -8,9 +8,8 @@ on:
       - master
 
 jobs:
-  docker-build:
+  docker-build-cloud:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -18,11 +17,29 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
+      - name: Build cloud image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile
+          file: apps/cloud/Dockerfile
           push: false
           load: false
-          tags: collapse:ci
+          tags: collapse-cloud:ci
+
+  docker-build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: false
+          load: false
+          tags: collapse-web:ci

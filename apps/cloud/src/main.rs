@@ -25,6 +25,9 @@ use registry::InMemoryJobRegistry;
 use state::AppState;
 use storage::FilesystemStorage;
 
+#[cfg(test)]
+mod api_tests;
+
 const DEFAULT_HOST: &str = "0.0.0.0";
 const DEFAULT_PORT: u16 = 8000;
 
@@ -86,20 +89,7 @@ async fn main() {
     };
 
     // Router
-    let mut app = Router::new()
-        .route("/files", get(routes::list_jobs).post(routes::upload_file))
-        .route("/files/completed", delete(routes::delete_completed))
-        .route(
-            "/files/{job_id}/status",
-            get(routes::get_job_status),
-        )
-        .route(
-            "/files/{job_id}/download",
-            get(routes::download_archive),
-        )
-        .route("/files/{job_id}", delete(routes::delete_job))
-        .layer(CorsLayer::very_permissive())
-        .with_state(state);
+    let mut app = build_router(state);
 
     // Serve static frontend if available
     let static_dir = PathBuf::from("static");
@@ -120,4 +110,15 @@ async fn main() {
         .expect("Failed to bind");
 
     axum::serve(listener, app).await.expect("Server error");
+}
+
+pub(crate) fn build_router(state: AppState) -> Router {
+    Router::new()
+        .route("/files", get(routes::list_jobs).post(routes::upload_file))
+        .route("/files/completed", delete(routes::delete_completed))
+        .route("/files/{job_id}/status", get(routes::get_job_status))
+        .route("/files/{job_id}/download", get(routes::download_archive))
+        .route("/files/{job_id}", delete(routes::delete_job))
+        .layer(CorsLayer::very_permissive())
+        .with_state(state)
 }

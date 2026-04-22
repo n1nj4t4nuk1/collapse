@@ -34,3 +34,67 @@ pub fn compress_7z(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SAMPLE: &[u8] = b"Hello, Collapse! Hello, Collapse! Hello, Collapse! ";
+
+    fn source_file(dir: &std::path::Path) -> std::path::PathBuf {
+        let p = dir.join("sample.txt");
+        std::fs::write(&p, SAMPLE).unwrap();
+        p
+    }
+
+    #[test]
+    fn creates_valid_7z() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let src = source_file(dir.path());
+        let archive = dir.path().join("out.7z");
+
+        compress_7z(&src, &archive, "sample.txt", 1).unwrap();
+        assert!(archive.exists());
+    }
+
+    #[test]
+    fn sevenz_contains_original_filename() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let src = source_file(dir.path());
+        let archive = dir.path().join("out.7z");
+
+        compress_7z(&src, &archive, "my_original.txt", 1).unwrap();
+
+        let extract = dir.path().join("extract");
+        let file = std::fs::File::open(&archive).unwrap();
+        sevenz_rust2::decompress(file, &extract).unwrap();
+        assert!(extract.join("my_original.txt").exists());
+    }
+
+    #[test]
+    fn sevenz_content_is_preserved() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let src = source_file(dir.path());
+        let archive = dir.path().join("out.7z");
+
+        compress_7z(&src, &archive, "sample.txt", 1).unwrap();
+
+        let extract = dir.path().join("extract");
+        let file = std::fs::File::open(&archive).unwrap();
+        sevenz_rust2::decompress(file, &extract).unwrap();
+        let content = std::fs::read(extract.join("sample.txt")).unwrap();
+        assert_eq!(content, SAMPLE);
+    }
+
+    #[test]
+    fn all_levels_produce_valid_7z() {
+        for level in 1..=5 {
+            let dir = tempfile::TempDir::new().unwrap();
+            let src = source_file(dir.path());
+            let archive = dir.path().join(format!("out_l{level}.7z"));
+
+            compress_7z(&src, &archive, "sample.txt", level).unwrap();
+            assert!(archive.exists(), "level {level} failed");
+        }
+    }
+}

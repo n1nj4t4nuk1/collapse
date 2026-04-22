@@ -87,3 +87,61 @@ pub fn compress(
         Algorithm::Zip => compress_zip(source, output, arcname, level),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn algorithm_display() {
+        assert_eq!(Algorithm::SevenZ.to_string(), "7z");
+        assert_eq!(Algorithm::Zip.to_string(), "zip");
+    }
+
+    #[test]
+    fn algorithm_from_str() {
+        assert_eq!("7z".parse::<Algorithm>().unwrap(), Algorithm::SevenZ);
+        assert_eq!("zip".parse::<Algorithm>().unwrap(), Algorithm::Zip);
+        assert!("invalid".parse::<Algorithm>().is_err());
+    }
+
+    #[test]
+    fn algorithm_extension() {
+        assert_eq!(Algorithm::SevenZ.extension(), "7z");
+        assert_eq!(Algorithm::Zip.extension(), "zip");
+    }
+
+    #[test]
+    fn algorithm_media_type() {
+        assert_eq!(
+            Algorithm::SevenZ.media_type(),
+            "application/x-7z-compressed"
+        );
+        assert_eq!(Algorithm::Zip.media_type(), "application/zip");
+    }
+
+    #[test]
+    fn algorithm_serde_roundtrip() {
+        let json = serde_json::to_string(&Algorithm::SevenZ).unwrap();
+        assert_eq!(json, "\"7z\"");
+        let parsed: Algorithm = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, Algorithm::SevenZ);
+
+        let json = serde_json::to_string(&Algorithm::Zip).unwrap();
+        assert_eq!(json, "\"zip\"");
+        let parsed: Algorithm = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, Algorithm::Zip);
+    }
+
+    #[test]
+    fn compress_invalid_level_zero() {
+        let result = compress(Path::new("/x"), Path::new("/y"), "f", Algorithm::Zip, 0);
+        assert!(matches!(result, Err(CompressionError::InvalidLevel(0))));
+    }
+
+    #[test]
+    fn compress_invalid_level_six() {
+        let result = compress(Path::new("/x"), Path::new("/y"), "f", Algorithm::Zip, 6);
+        assert!(matches!(result, Err(CompressionError::InvalidLevel(6))));
+    }
+}

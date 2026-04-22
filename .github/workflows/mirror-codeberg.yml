@@ -11,7 +11,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Kagami
-        uses: javierparadadev/kagami@v1.0.0
+        uses: n1nj4t4nuk1/kagami@v1.0.0
         env:
           MIRROR_GIT_USERNAME: n1nj4t4nuk1
           MIRROR_GIT_EMAIL: javierparada@pm.me

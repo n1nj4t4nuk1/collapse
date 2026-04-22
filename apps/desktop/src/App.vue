@@ -117,84 +117,167 @@ onUnmounted(() => {
 
 <template>
   <div class="app">
+    <div class="bg-glow"></div>
+
     <header>
-      <h1>Collapse</h1>
+      <div class="logo-row">
+        <svg class="logo" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="g1" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#a78bfa"/>
+              <stop offset="100%" stop-color="#6d28d9"/>
+            </linearGradient>
+            <linearGradient id="g2" x1="10" y1="5" x2="35" y2="38" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#c4b5fd" stop-opacity="0.6"/>
+              <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.2"/>
+            </linearGradient>
+          </defs>
+          <!-- Abstract collapsing cube -->
+          <path d="M20 4L36 13V27L20 36L4 27V13L20 4Z" fill="url(#g1)" opacity="0.9"/>
+          <path d="M20 4L36 13L20 22L4 13L20 4Z" fill="url(#g2)"/>
+          <path d="M20 22V36L4 27V13L20 22Z" fill="#7c3aed" opacity="0.5"/>
+          <path d="M20 22V36L36 27V13L20 22Z" fill="#6d28d9" opacity="0.35"/>
+          <!-- Inner collapse lines -->
+          <path d="M20 14L28 18.5L20 23L12 18.5L20 14Z" fill="white" opacity="0.12"/>
+          <line x1="20" y1="23" x2="20" y2="30" stroke="white" stroke-opacity="0.1" stroke-width="1"/>
+        </svg>
+        <div class="brand">
+          <h1>Collapse</h1>
+          <span class="version">v0.1.0</span>
+        </div>
+      </div>
     </header>
 
-    <div
-      class="drop-zone"
-      :class="{ active: dragging, 'has-file': filePath }"
-      @click="browse"
-    >
-      <div v-if="!filePath" class="placeholder">
-        <div class="drop-icon">+</div>
-        <p>Drop a file here or click to browse</p>
-      </div>
-      <div v-else class="file-info">
-        <div class="drop-icon">{{ isArchive ? 'E' : 'C' }}</div>
-        <p class="file-name">{{ fileName }}</p>
-        <span class="mode-badge">{{ isArchive ? 'Extract' : 'Compress' }}</span>
-      </div>
-    </div>
-
-    <div v-if="filePath && !result" class="options">
-      <template v-if="mode === 'compress'">
-        <div class="option-row">
-          <div class="field">
-            <label>Algorithm</label>
-            <select v-model="protocol">
-              <option value="zip">ZIP (Deflate)</option>
-              <option value="7z">7z (LZMA2)</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Level</label>
-            <select v-model.number="level">
-              <option v-for="l in 5" :key="l" :value="l">{{ l }}</option>
-            </select>
-          </div>
-        </div>
-      </template>
-
-      <button
-        class="action-btn"
-        :disabled="processing"
-        @click="mode === 'compress' ? doCompress() : doExtract()"
+    <main>
+      <!-- Drop zone -->
+      <div
+        class="drop-zone"
+        :class="{ active: dragging, 'has-file': filePath }"
+        @click="browse"
       >
-        {{ processing ? 'Working...' : (mode === 'compress' ? 'Compress' : 'Extract') }}
-      </button>
-    </div>
+        <Transition name="fade" mode="out-in">
+          <div v-if="!filePath" class="placeholder" key="empty">
+            <div class="drop-ring">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+            </div>
+            <p class="drop-label">Drop a file here</p>
+            <p class="drop-hint">or click to browse</p>
+          </div>
+          <div v-else class="file-selected" key="file">
+            <div class="file-icon-wrap" :class="mode">
+              <svg v-if="mode === 'compress'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3v18M3 12l9 9 9-9"/>
+              </svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 21V3M3 12l9-9 9 9"/>
+              </svg>
+            </div>
+            <p class="file-name">{{ fileName }}</p>
+            <span class="mode-pill" :class="mode">
+              {{ mode === 'compress' ? 'Compress' : 'Extract' }}
+            </span>
+          </div>
+        </Transition>
+      </div>
 
-    <div v-if="result" class="result">
-      <template v-if="result.type === 'compress'">
-        <p class="success-label">Compressed to:</p>
-        <p class="output-path">{{ result.output }}</p>
-      </template>
-      <template v-else>
-        <p class="success-label">Extracted {{ result.files.length }} file(s) to:</p>
-        <p class="output-path">{{ result.outputDir }}</p>
-        <ul class="file-list">
-          <li v-for="f in result.files" :key="f">{{ f }}</li>
-        </ul>
-      </template>
-      <button class="reset-btn" @click="reset">New file</button>
-    </div>
+      <!-- Options -->
+      <Transition name="slide">
+        <div v-if="filePath && !result" class="controls">
+          <template v-if="mode === 'compress'">
+            <div class="option-row">
+              <div class="field">
+                <label>Format</label>
+                <div class="select-wrap">
+                  <select v-model="protocol">
+                    <option value="zip">ZIP</option>
+                    <option value="7z">7z</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field">
+                <label>Level</label>
+                <div class="level-bar">
+                  <button
+                    v-for="l in 5" :key="l"
+                    :class="{ active: level === l }"
+                    @click="level = l"
+                  >{{ l }}</button>
+                </div>
+              </div>
+            </div>
+          </template>
 
-    <p v-if="error" class="error">{{ error }}</p>
+          <button
+            class="action-btn"
+            :class="{ working: processing }"
+            :disabled="processing"
+            @click="mode === 'compress' ? doCompress() : doExtract()"
+          >
+            <span v-if="processing" class="spinner"></span>
+            {{ processing ? 'Working...' : (mode === 'compress' ? 'Compress' : 'Extract') }}
+          </button>
+        </div>
+      </Transition>
+
+      <!-- Result -->
+      <Transition name="slide">
+        <div v-if="result" class="result-card">
+          <div class="result-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
+          </div>
+          <template v-if="result.type === 'compress'">
+            <p class="result-title">Compressed successfully</p>
+            <p class="result-path">{{ result.output }}</p>
+          </template>
+          <template v-else>
+            <p class="result-title">Extracted {{ result.files.length }} file(s)</p>
+            <p class="result-path">{{ result.outputDir }}</p>
+            <ul class="extracted-list">
+              <li v-for="f in result.files" :key="f">{{ f }}</li>
+            </ul>
+          </template>
+          <button class="ghost-btn" @click="reset">Start over</button>
+        </div>
+      </Transition>
+
+      <!-- Error -->
+      <Transition name="fade">
+        <div v-if="error" class="error-bar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+          <span>{{ error }}</span>
+        </div>
+      </Transition>
+    </main>
   </div>
 </template>
 
 <style>
 :root {
-  --bg: #1a1a2e;
-  --surface: #16213e;
-  --border: #2a3a5c;
-  --text: #e0e0e0;
-  --text-muted: #8892a4;
-  --accent: #4f8cff;
-  --accent-hover: #3a72e0;
-  --success: #4caf50;
-  --danger: #ef5350;
+  --bg: #0c0a13;
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-hover: rgba(255, 255, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.14);
+  --text: #f0eef5;
+  --text-secondary: rgba(240, 238, 245, 0.55);
+  --text-tertiary: rgba(240, 238, 245, 0.3);
+  --accent: #a78bfa;
+  --accent-dim: rgba(167, 139, 250, 0.15);
+  --accent-solid: #7c3aed;
+  --success: #34d399;
+  --success-dim: rgba(52, 211, 153, 0.12);
+  --danger: #f87171;
+  --danger-dim: rgba(248, 113, 113, 0.1);
+  --radius: 14px;
+  --radius-sm: 10px;
 }
 
 * {
@@ -204,212 +287,466 @@ onUnmounted(() => {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   user-select: none;
+  overflow: hidden;
 }
 
 .app {
+  position: relative;
   display: flex;
   flex-direction: column;
-  padding: 24px;
-  gap: 20px;
   min-height: 100vh;
 }
 
-header h1 {
-  font-size: 1.3rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+/* Ambient glow */
+.bg-glow {
+  position: fixed;
+  top: -40%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
 }
 
+/* Header */
+header {
+  position: relative;
+  z-index: 1;
+  padding: 20px 24px 0;
+}
+
+.logo-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.brand h1 {
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  background: linear-gradient(135deg, #f0eef5 30%, var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.version {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+/* Main */
+main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 24px 24px;
+  gap: 14px;
+}
+
+/* Drop zone */
 .drop-zone {
   flex: 1;
-  min-height: 180px;
-  border: 2px dashed var(--border);
-  border-radius: 12px;
+  min-height: 200px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--surface);
+  backdrop-filter: blur(20px);
 }
 
-.drop-zone:hover,
+.drop-zone:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-hover);
+}
+
 .drop-zone.active {
   border-color: var(--accent);
-  background: rgba(79, 140, 255, 0.06);
+  background: var(--accent-dim);
+  border-style: solid;
 }
 
 .drop-zone.has-file {
   border-style: solid;
-  border-color: var(--accent);
-  background: rgba(79, 140, 255, 0.04);
-}
-
-.placeholder,
-.file-info {
-  text-align: center;
-}
-
-.drop-icon {
-  width: 48px;
-  height: 48px;
-  margin: 0 auto 12px;
-  border-radius: 50%;
+  border-color: var(--border-hover);
   background: var(--surface);
-  border: 1px solid var(--border);
+}
+
+.placeholder, .file-selected {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.drop-ring {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
-  font-weight: 700;
+  color: var(--text-tertiary);
+  transition: all 0.3s;
+}
+
+.drop-ring svg {
+  width: 22px;
+  height: 22px;
+}
+
+.drop-zone:hover .drop-ring,
+.drop-zone.active .drop-ring {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.drop-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.drop-hint {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+}
+
+/* File selected */
+.file-icon-wrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-dim);
   color: var(--accent);
 }
 
-.placeholder p {
-  color: var(--text-muted);
-  font-size: 0.9rem;
+.file-icon-wrap.extract {
+  background: var(--success-dim);
+  color: var(--success);
+}
+
+.file-icon-wrap svg {
+  width: 22px;
+  height: 22px;
 }
 
 .file-name {
   font-weight: 600;
-  font-size: 1rem;
-  margin-bottom: 8px;
+  font-size: 0.95rem;
   word-break: break-all;
+  max-width: 100%;
+  line-height: 1.3;
 }
 
-.mode-badge {
-  display: inline-block;
-  font-size: 0.72rem;
+.mode-pill {
+  font-size: 0.68rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 3px 10px;
-  border-radius: 10px;
-  background: rgba(79, 140, 255, 0.15);
+  letter-spacing: 0.08em;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: var(--accent-dim);
   color: var(--accent);
 }
 
-.options {
+.mode-pill.extract {
+  background: var(--success-dim);
+  color: var(--success);
+}
+
+/* Controls */
+.controls {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .option-row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 
 .field {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .field label {
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
 }
 
-.field select {
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.9rem;
-  outline: none;
+.select-wrap {
+  position: relative;
 }
 
-.field select:focus {
-  border-color: var(--accent);
-}
-
-.action-btn {
+.select-wrap select {
   width: 100%;
-  padding: 12px;
-  border: none;
-  border-radius: 10px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.action-btn:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.result {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px;
-}
-
-.success-label {
-  font-size: 0.85rem;
-  color: var(--success);
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-.output-path {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  word-break: break-all;
-  margin-bottom: 10px;
-}
-
-.file-list {
-  list-style: none;
-  margin-bottom: 12px;
-  max-height: 120px;
-  overflow-y: auto;
-}
-
-.file-list li {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  padding: 3px 0;
-}
-
-.reset-btn {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: transparent;
   color: var(--text);
   font-size: 0.85rem;
   font-weight: 500;
+  outline: none;
+  appearance: none;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: border-color 0.2s;
 }
 
-.reset-btn:hover {
+.select-wrap select:focus {
+  border-color: var(--accent);
+}
+
+.level-bar {
+  display: flex;
+  gap: 4px;
+}
+
+.level-bar button {
+  flex: 1;
+  padding: 10px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.level-bar button:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.level-bar button.active {
+  background: var(--accent-dim);
   border-color: var(--accent);
   color: var(--accent);
 }
 
-.error {
+/* Action button */
+.action-btn {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--accent-solid), #9333ea);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  letter-spacing: 0.01em;
+}
+
+.action-btn:hover:not(:disabled) {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
+.action-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Result */
+.result-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   text-align: center;
+  backdrop-filter: blur(20px);
+}
+
+.result-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--success-dim);
+  color: var(--success);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.result-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.result-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--success);
+}
+
+.result-path {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.extracted-list {
+  list-style: none;
+  max-height: 100px;
+  overflow-y: auto;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.extracted-list li {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.extracted-list li:last-child {
+  border-bottom: none;
+}
+
+.ghost-btn {
+  margin-top: 6px;
+  padding: 9px 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ghost-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+/* Error */
+.error-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--danger-dim);
+  border: 1px solid rgba(248, 113, 113, 0.15);
   color: var(--danger);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
+}
+
+.error-bar svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* Transitions */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+
+.slide-enter-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.slide-leave-active {
+  transition: all 0.2s ease;
+}
+.slide-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.slide-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
 }
 </style>

@@ -43,12 +43,12 @@ Docker images are validated separately via `docker-build.yml`.
 
 ```bash
 # Build individual apps
-make api/build
-make web/build
-make cli/build
+make api
+make web
+make cli
 
 # Build AIO (frontend + backend)
-make aio/build
+make aio
 
 # Docker images
 make api/docker/build

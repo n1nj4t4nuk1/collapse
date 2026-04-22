@@ -24,9 +24,19 @@ The project is a Rust workspace organized as a monorepo under `apps/`:
 - Delete individual jobs or bulk-delete all completed jobs.
 - Vue 3 frontend with real-time job status tracking.
 
+## CI
+
+GitHub Actions pipeline (`test_and_build.yml`) runs on every push to `main` and on PRs:
+
+1. **Test** -- runs `cargo test` for the entire workspace.
+2. **Build** -- debug build per app in parallel (`collapse-core`, `collapse-api`, `collapse-aio`, `collapse-cli`).
+3. **Release build** -- `cargo build --release` per app in parallel.
+
+Docker images are validated separately via `docker-build.yml`.
+
 ## Requirements
 
-- Rust 1.75+ (2021 edition)
+- Rust 1.88+ (2021 edition)
 - Node.js 18+ (for building the frontend)
 
 ## Build

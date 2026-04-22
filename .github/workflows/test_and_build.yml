@@ -33,6 +33,9 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: [collapse-core, collapse-api, collapse-aio, collapse-cli]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -50,8 +53,8 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
-      - name: Build workspace
-        run: cargo build
+      - name: Build ${{ matrix.package }}
+        run: cargo build -p ${{ matrix.package }}
 
   release-build:
     needs: build

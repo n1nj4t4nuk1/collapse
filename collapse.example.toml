@@ -1,0 +1,17 @@
+# Collapse configuration file.
+# Copy to `collapse.toml` and edit as needed.
+# All values shown here are the defaults.
+
+[server]
+host = "0.0.0.0"
+port = 8000
+
+[storage]
+input_dir = "storage/input"
+output_dir = "storage/output"
+
+[upload]
+max_size_mb = 500
+
+[static]
+dir = "static"

@@ -11,11 +11,16 @@ use tower::ServiceExt;
 use collapse_core::Algorithm;
 
 use crate::build_router;
+use crate::config::AppConfig;
 use crate::models::{CompressionJob, JobStatus};
 use crate::queue::start_compression_worker;
 use crate::registry::InMemoryJobRegistry;
 use crate::state::AppState;
 use crate::storage::FilesystemStorage;
+
+fn test_config() -> AppConfig {
+    AppConfig::default()
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -137,7 +142,7 @@ async fn body_json(response: axum::http::Response<Body>) -> serde_json::Value {
 async fn list_empty() {
     let dir = tempfile::TempDir::new().unwrap();
     let (state, _rx) = test_state(&dir);
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
 
     let res = app
         .oneshot(Request::builder().uri("/files").body(Body::empty()).unwrap())
@@ -159,7 +164,7 @@ async fn list_returns_jobs_ordered_by_created_at() {
     state.registry.add(j1);
     state.registry.add(j2);
 
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
     let res = app
         .oneshot(Request::builder().uri("/files").body(Body::empty()).unwrap())
         .await
@@ -179,7 +184,7 @@ async fn list_returns_jobs_ordered_by_created_at() {
 async fn upload_returns_202() {
     let dir = tempfile::TempDir::new().unwrap();
     let (state, _rx) = test_state(&dir);
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
 
     let (ct, body) = multipart_upload("hello.txt", b"content", Some("zip"), Some(1));
     let res = app
@@ -206,7 +211,7 @@ async fn upload_returns_202() {
 async fn upload_default_algorithm_is_7z() {
     let dir = tempfile::TempDir::new().unwrap();
     let (state, _rx) = test_state(&dir);
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
 
     let (ct, body) = multipart_upload("f.txt", b"x", None, None);
     let res = app
@@ -230,7 +235,7 @@ async fn upload_default_algorithm_is_7z() {
 async fn upload_empty_filename_returns_400() {
     let dir = tempfile::TempDir::new().unwrap();
     let (state, _rx) = test_state(&dir);
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
 
     let (ct, body) = multipart_upload("", b"content", None, None);
     let res = app
@@ -252,7 +257,7 @@ async fn upload_empty_filename_returns_400() {
 async fn upload_level_out_of_range_returns_400() {
     let dir = tempfile::TempDir::new().unwrap();
     let (state, _rx) = test_state(&dir);
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
 
     let (ct, body) = multipart_upload("f.txt", b"x", None, Some(6));
     let res = app
@@ -280,7 +285,7 @@ async fn get_status_returns_200() {
     let (state, _rx) = test_state(&dir);
     state.registry.add(make_job("j1", JobStatus::Queued, &dir));
 
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
     let res = app
         .oneshot(
             Request::builder()
@@ -300,7 +305,7 @@ async fn get_status_returns_200() {
 async fn get_status_missing_returns_404() {
     let dir = tempfile::TempDir::new().unwrap();
     let (state, _rx) = test_state(&dir);
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
 
     let res = app
         .oneshot(
@@ -332,7 +337,7 @@ async fn download_completed_job() {
     job.compressed_path = archive_path;
     state.registry.add(job);
 
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
     let res = app
         .oneshot(
             Request::builder()
@@ -352,7 +357,7 @@ async fn download_queued_returns_409() {
     let (state, _rx) = test_state(&dir);
     state.registry.add(make_job("j1", JobStatus::Queued, &dir));
 
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
     let res = app
         .oneshot(
             Request::builder()
@@ -374,7 +379,7 @@ async fn download_compressing_returns_409() {
         .registry
         .add(make_job("j1", JobStatus::Compressing, &dir));
 
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
     let res = app
         .oneshot(
             Request::builder()
@@ -397,7 +402,7 @@ async fn download_failed_returns_409() {
     job.error_message = Some("disk full".into());
     state.registry.add(job);
 
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
     let res = app
         .oneshot(
             Request::builder()
@@ -420,7 +425,7 @@ async fn download_missing_archive_returns_404() {
     job.compressed_path = PathBuf::from("/nonexistent/out.zip");
     state.registry.add(job);
 
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
     let res = app
         .oneshot(
             Request::builder()
@@ -438,7 +443,7 @@ async fn download_missing_archive_returns_404() {
 async fn download_missing_job_returns_404() {
     let dir = tempfile::TempDir::new().unwrap();
     let (state, _rx) = test_state(&dir);
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
 
     let res = app
         .oneshot(
@@ -472,7 +477,7 @@ async fn delete_completed_job() {
     job.compressed_path = arc.clone();
     state.registry.add(job);
 
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
     let res = app
         .oneshot(
             Request::builder()
@@ -497,7 +502,7 @@ async fn delete_queued_returns_409() {
     let (state, _rx) = test_state(&dir);
     state.registry.add(make_job("j1", JobStatus::Queued, &dir));
 
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
     let res = app
         .oneshot(
             Request::builder()
@@ -516,7 +521,7 @@ async fn delete_queued_returns_409() {
 async fn delete_missing_job_returns_404() {
     let dir = tempfile::TempDir::new().unwrap();
     let (state, _rx) = test_state(&dir);
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
 
     let res = app
         .oneshot(
@@ -540,7 +545,7 @@ async fn delete_removes_job_from_registry() {
         .registry
         .add(make_job("j1", JobStatus::Completed, &dir));
 
-    let app = build_router(state.clone());
+    let app = build_router(state.clone(), &test_config());
     app.oneshot(
         Request::builder()
             .method("DELETE")
@@ -574,7 +579,7 @@ async fn delete_completed_only_deletes_completed() {
     state.registry.add(completed);
     state.registry.add(make_job("q1", JobStatus::Queued, &dir));
 
-    let app = build_router(state.clone());
+    let app = build_router(state.clone(), &test_config());
     let res = app
         .oneshot(
             Request::builder()
@@ -599,7 +604,7 @@ async fn delete_completed_empty_when_no_completed() {
     let (state, _rx) = test_state(&dir);
     state.registry.add(make_job("q1", JobStatus::Queued, &dir));
 
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
     let res = app
         .oneshot(
             Request::builder()
@@ -630,7 +635,7 @@ async fn delete_completed_counts_deleted_files() {
     job.compressed_path = arc;
     state.registry.add(job);
 
-    let app = build_router(state);
+    let app = build_router(state, &test_config());
     let res = app
         .oneshot(
             Request::builder()
@@ -657,7 +662,7 @@ async fn full_roundtrip() {
 
     // 1. Upload
     let (ct, body) = multipart_upload("hello.txt", b"Hello, Collapse!", Some("zip"), Some(1));
-    let app = build_router(state.clone());
+    let app = build_router(state.clone(), &test_config());
     let res = app
         .oneshot(
             Request::builder()
@@ -688,7 +693,7 @@ async fn full_roundtrip() {
     assert_eq!(job.status, JobStatus::Completed);
 
     // 3. Download
-    let app = build_router(state.clone());
+    let app = build_router(state.clone(), &test_config());
     let res = app
         .oneshot(
             Request::builder()

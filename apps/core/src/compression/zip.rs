@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::Path;
 
@@ -39,6 +39,37 @@ pub fn compress_zip(
         .map_err(|e| CompressionError::Failed(e.to_string()))?;
 
     Ok(())
+}
+
+pub fn extract_zip(archive: &Path, output_dir: &Path) -> Result<Vec<String>, CompressionError> {
+    let file = File::open(archive)?;
+    let mut zip = zip::ZipArchive::new(file)
+        .map_err(|e| CompressionError::Failed(e.to_string()))?;
+
+    let mut extracted = Vec::new();
+
+    for i in 0..zip.len() {
+        let mut entry = zip
+            .by_index(i)
+            .map_err(|e| CompressionError::Failed(e.to_string()))?;
+
+        let name = entry.name().to_string();
+        let dest = output_dir.join(&name);
+
+        if entry.is_dir() {
+            fs::create_dir_all(&dest)?;
+        } else {
+            if let Some(parent) = dest.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            let mut buf = Vec::new();
+            entry.read_to_end(&mut buf)?;
+            fs::write(&dest, &buf)?;
+            extracted.push(name);
+        }
+    }
+
+    Ok(extracted)
 }
 
 #[cfg(test)]

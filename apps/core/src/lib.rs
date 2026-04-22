@@ -1,3 +1,3 @@
 pub mod compression;
 
-pub use compression::{compress, Algorithm, CompressionError};
+pub use compression::{compress, extract, Algorithm, CompressionError};

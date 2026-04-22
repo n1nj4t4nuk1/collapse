@@ -1,8 +1,8 @@
 mod sevenz;
 mod zip;
 
-pub use self::sevenz::compress_7z;
-pub use self::zip::compress_zip;
+pub use self::sevenz::{compress_7z, extract_7z};
+pub use self::zip::{compress_zip, extract_zip};
 
 use std::fmt;
 use std::path::Path;
@@ -56,6 +56,17 @@ impl FromStr for Algorithm {
     }
 }
 
+impl Algorithm {
+    /// Try to detect the algorithm from a file extension.
+    pub fn from_extension(ext: &str) -> Option<Self> {
+        match ext {
+            "7z" => Some(Algorithm::SevenZ),
+            "zip" => Some(Algorithm::Zip),
+            _ => None,
+        }
+    }
+}
+
 /// Errors that can occur during compression.
 #[derive(Debug, Error)]
 pub enum CompressionError {
@@ -85,6 +96,26 @@ pub fn compress(
     match algorithm {
         Algorithm::SevenZ => compress_7z(source, output, arcname, level),
         Algorithm::Zip => compress_zip(source, output, arcname, level),
+    }
+}
+
+/// Extract an archive into `output_dir`.
+///
+/// Returns the list of extracted file paths (relative to `output_dir`).
+/// The algorithm is detected from the archive file extension.
+pub fn extract(archive: &Path, output_dir: &Path) -> Result<Vec<String>, CompressionError> {
+    let ext = archive
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("");
+
+    let algorithm = Algorithm::from_extension(ext).ok_or_else(|| {
+        CompressionError::Failed(format!("Unknown archive extension: .{ext}"))
+    })?;
+
+    match algorithm {
+        Algorithm::SevenZ => extract_7z(archive, output_dir),
+        Algorithm::Zip => extract_zip(archive, output_dir),
     }
 }
 

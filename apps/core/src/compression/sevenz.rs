@@ -35,6 +35,38 @@ pub fn compress_7z(
     Ok(())
 }
 
+pub fn extract_7z(archive: &Path, output_dir: &Path) -> Result<Vec<String>, CompressionError> {
+    let file = std::fs::File::open(archive)?;
+    sevenz_rust2::decompress(file, output_dir)
+        .map_err(|e| CompressionError::Failed(e.to_string()))?;
+
+    let mut extracted = Vec::new();
+    collect_files(output_dir, output_dir, &mut extracted)?;
+    Ok(extracted)
+}
+
+fn collect_files(
+    base: &Path,
+    dir: &Path,
+    out: &mut Vec<String>,
+) -> Result<(), CompressionError> {
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_files(base, &path, out)?;
+        } else {
+            let rel = path
+                .strip_prefix(base)
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+            out.push(rel);
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

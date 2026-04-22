@@ -1,53 +1,102 @@
 use std::path::PathBuf;
 use std::process;
 
-use clap::Parser;
-use collapse_core::{compress, Algorithm};
+use clap::{Parser, Subcommand};
+use collapse_core::{compress, extract, Algorithm};
 
 #[derive(Parser)]
 #[command(
     name = "collapse",
-    about = "Compress files from the command line."
+    about = "Compress and extract files from the command line."
 )]
 struct Cli {
-    /// File to compress.
-    file: PathBuf,
+    #[command(subcommand)]
+    command: Command,
+}
 
-    /// Output archive path. Defaults to <file>.<extension>.
-    #[arg(short, long)]
-    output: Option<PathBuf>,
+#[derive(Subcommand)]
+enum Command {
+    /// Compress a file.
+    #[command(alias = "c")]
+    Compress {
+        /// File to compress.
+        file: PathBuf,
 
-    /// Compression algorithm: zip or 7z.
-    #[arg(short, long, default_value = "zip")]
-    protocol: Algorithm,
+        /// Output archive path. Defaults to <file>.<extension>.
+        #[arg(short, long)]
+        output: Option<PathBuf>,
 
-    /// Compression level (1 = fastest, 5 = max).
-    #[arg(short, long, default_value_t = 5)]
-    level: u32,
+        /// Compression algorithm: zip or 7z.
+        #[arg(short, long, default_value = "zip")]
+        protocol: Algorithm,
+
+        /// Compression level (1 = fastest, 5 = max).
+        #[arg(short, long, default_value_t = 5)]
+        level: u32,
+    },
+
+    /// Extract an archive.
+    #[command(alias = "e")]
+    Extract {
+        /// Archive to extract (.zip or .7z).
+        file: PathBuf,
+
+        /// Output directory. Defaults to current directory.
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
 }
 
 fn main() {
     let cli = Cli::parse();
 
-    if !cli.file.exists() {
-        eprintln!("error: file not found: {}", cli.file.display());
+    match cli.command {
+        Command::Compress {
+            file,
+            output,
+            protocol,
+            level,
+        } => run_compress(&file, output, protocol, level),
+        Command::Extract { file, output } => run_extract(&file, output),
+    }
+}
+
+fn run_compress(file: &PathBuf, output: Option<PathBuf>, protocol: Algorithm, level: u32) {
+    if !file.exists() {
+        eprintln!("error: file not found: {}", file.display());
         process::exit(1);
     }
 
-    let output = cli.output.unwrap_or_else(|| {
-        let name = cli.file.file_name().unwrap().to_string_lossy();
-        PathBuf::from(format!("{}.{}", name, cli.protocol.extension()))
+    let output = output.unwrap_or_else(|| {
+        let name = file.file_name().unwrap().to_string_lossy();
+        PathBuf::from(format!("{}.{}", name, protocol.extension()))
     });
 
-    let arcname = cli
-        .file
-        .file_name()
-        .unwrap()
-        .to_string_lossy()
-        .to_string();
+    let arcname = file.file_name().unwrap().to_string_lossy().to_string();
 
-    match compress(&cli.file, &output, &arcname, cli.protocol, cli.level) {
+    match compress(file, &output, &arcname, protocol, level) {
         Ok(()) => println!("{}", output.display()),
+        Err(e) => {
+            eprintln!("error: {e}");
+            process::exit(1);
+        }
+    }
+}
+
+fn run_extract(file: &PathBuf, output: Option<PathBuf>) {
+    if !file.exists() {
+        eprintln!("error: file not found: {}", file.display());
+        process::exit(1);
+    }
+
+    let output_dir = output.unwrap_or_else(|| PathBuf::from("."));
+
+    match extract(file, &output_dir) {
+        Ok(files) => {
+            for f in &files {
+                println!("{}", f);
+            }
+        }
         Err(e) => {
             eprintln!("error: {e}");
             process::exit(1);

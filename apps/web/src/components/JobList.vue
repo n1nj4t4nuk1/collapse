@@ -23,10 +23,6 @@ function formatDate(iso) {
   return new Date(iso).toLocaleString()
 }
 
-function formatSize(name) {
-  return name
-}
-
 async function download(jobId) {
   try {
     await downloadFile(jobId)

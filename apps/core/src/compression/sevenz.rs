@@ -1,11 +1,12 @@
 use std::fs;
 use std::path::Path;
 
-use sevenz_rust2::{SevenZArchiveEntry, SevenZWriter};
+use sevenz_rust2::lzma::LZMA2Options;
+use sevenz_rust2::{SevenZArchiveEntry, SevenZMethodConfiguration, SevenZMethod, SevenZWriter};
 
 use super::CompressionError;
 
-/// API level (1–5) → py7zr-equivalent preset (1–9).
+/// API level (1–5) → LZMA2 preset (1–9).
 const SEVENZ_PRESETS: [u32; 5] = [1, 3, 5, 7, 9];
 
 pub fn compress_7z(
@@ -14,12 +15,16 @@ pub fn compress_7z(
     arcname: &str,
     level: u32,
 ) -> Result<(), CompressionError> {
-    let _preset = SEVENZ_PRESETS[(level - 1) as usize];
+    let preset = SEVENZ_PRESETS[(level - 1) as usize];
 
     let content = fs::read(source)?;
 
     let mut writer =
         SevenZWriter::create(output).map_err(|e| CompressionError::Failed(e.to_string()))?;
+
+    let lzma2_opts = LZMA2Options::with_preset(preset);
+    writer.set_content_methods(vec![SevenZMethodConfiguration::new(SevenZMethod::LZMA2)
+        .with_options(lzma2_opts.into())]);
 
     let mut entry = SevenZArchiveEntry::default();
     entry.name = arcname.to_string();
@@ -36,12 +41,24 @@ pub fn compress_7z(
 }
 
 pub fn extract_7z(archive: &Path, output_dir: &Path) -> Result<Vec<String>, CompressionError> {
+    fs::create_dir_all(output_dir)?;
+    let canonical_output = output_dir.canonicalize()?;
+
     let file = std::fs::File::open(archive)?;
-    sevenz_rust2::decompress(file, output_dir)
+    sevenz_rust2::decompress(file, &canonical_output)
         .map_err(|e| CompressionError::Failed(e.to_string()))?;
 
+    // Verify all extracted files stay within output_dir (path traversal check).
     let mut extracted = Vec::new();
-    collect_files(output_dir, output_dir, &mut extracted)?;
+    collect_files(&canonical_output, &canonical_output, &mut extracted)?;
+    for rel in &extracted {
+        let full = canonical_output.join(rel).canonicalize()?;
+        if !full.starts_with(&canonical_output) {
+            return Err(CompressionError::Failed(format!(
+                "Path traversal detected in archive entry: {rel}"
+            )));
+        }
+    }
     Ok(extracted)
 }
 

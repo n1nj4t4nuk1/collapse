@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{self, Write};
+use std::io;
 use std::path::{Path, PathBuf};
 
 use collapse_core::Algorithm;
@@ -9,7 +9,6 @@ use uuid::Uuid;
 pub struct FilesystemStorage {
     input_dir: PathBuf,
     output_dir: PathBuf,
-    chunk_size: usize,
 }
 
 impl FilesystemStorage {
@@ -17,7 +16,6 @@ impl FilesystemStorage {
         Self {
             input_dir,
             output_dir,
-            chunk_size: 1024 * 1024,
         }
     }
 
@@ -50,11 +48,7 @@ impl FilesystemStorage {
         if let Some(parent) = destination.parent() {
             fs::create_dir_all(parent)?;
         }
-        let mut file = fs::File::create(destination)?;
-        for chunk in data.chunks(self.chunk_size) {
-            file.write_all(chunk)?;
-        }
-        Ok(())
+        fs::write(destination, data)
     }
 
     /// Delete the file at `path`. Returns `true` if it existed.

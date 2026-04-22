@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process;
 
 use clap::{Parser, Subcommand};
@@ -61,7 +61,7 @@ fn main() {
     }
 }
 
-fn run_compress(file: &PathBuf, output: Option<PathBuf>, protocol: Algorithm, level: u32) {
+fn run_compress(file: &Path, output: Option<PathBuf>, protocol: Algorithm, level: u32) {
     if !file.exists() {
         eprintln!("error: file not found: {}", file.display());
         process::exit(1);
@@ -83,7 +83,7 @@ fn run_compress(file: &PathBuf, output: Option<PathBuf>, protocol: Algorithm, le
     }
 }
 
-fn run_extract(file: &PathBuf, output: Option<PathBuf>) {
+fn run_extract(file: &Path, output: Option<PathBuf>) {
     if !file.exists() {
         eprintln!("error: file not found: {}", file.display());
         process::exit(1);

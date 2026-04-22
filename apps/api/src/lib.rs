@@ -9,11 +9,15 @@ mod error;
 mod routes;
 mod schemas;
 
+use axum::extract::DefaultBodyLimit;
 use axum::routing::{delete, get};
 use axum::Router;
 use tower_http::cors::CorsLayer;
 
 use state::AppState;
+
+/// Maximum upload size: 500 MB.
+const MAX_UPLOAD_SIZE: usize = 500 * 1024 * 1024;
 
 pub fn build_router(state: AppState) -> Router {
     Router::new()
@@ -22,6 +26,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/files/{job_id}/status", get(routes::get_job_status))
         .route("/files/{job_id}/download", get(routes::download_archive))
         .route("/files/{job_id}", delete(routes::delete_job))
+        .layer(DefaultBodyLimit::max(MAX_UPLOAD_SIZE))
         .layer(CorsLayer::very_permissive())
         .with_state(state)
 }

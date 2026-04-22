@@ -70,7 +70,9 @@ pub async fn upload_file(
                     .text()
                     .await
                     .map_err(|e| AppError::BadRequest(e.to_string()))?;
-                algorithm = text.parse().unwrap_or(Algorithm::SevenZ);
+                algorithm = text
+                    .parse()
+                    .map_err(|e: String| AppError::BadRequest(e))?;
             }
             "level" => {
                 let text = field
@@ -182,6 +184,13 @@ pub async fn download_archive(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
+    // Sanitize filename for Content-Disposition header to prevent injection.
+    let safe_name: String = job
+        .archive_filename
+        .chars()
+        .filter(|c| *c != '"' && *c != '\\' && *c != '\n' && *c != '\r')
+        .collect();
+
     let headers = [
         (
             header::CONTENT_TYPE,
@@ -189,7 +198,7 @@ pub async fn download_archive(
         ),
         (
             header::CONTENT_DISPOSITION,
-            format!("attachment; filename=\"{}\"", job.archive_filename),
+            format!("attachment; filename=\"{}\"", safe_name),
         ),
     ];
 

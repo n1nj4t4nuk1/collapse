@@ -215,6 +215,29 @@ mod tests {
     }
 
     #[test]
+    fn extract_zip_directory_entries_are_skipped_in_file_list() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let archive = dir.path().join("with_dir.zip");
+
+        // Manually create a ZIP with a directory entry + a file inside it.
+        {
+            let f = std::fs::File::create(&archive).unwrap();
+            let mut w = zip::ZipWriter::new(f);
+            let opts = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+            w.add_directory("subdir/", opts).unwrap();
+            w.start_file("subdir/inner.txt", opts).unwrap();
+            w.write_all(b"inner content").unwrap();
+            w.finish().unwrap();
+        }
+
+        let out = dir.path().join("extracted");
+        let files = extract_zip(&archive, &out).unwrap();
+        // Directory entries must NOT appear in the returned list.
+        assert_eq!(files, vec!["subdir/inner.txt"]);
+        assert!(out.join("subdir/inner.txt").exists());
+    }
+
+    #[test]
     fn extract_zip_roundtrip_all_levels() {
         for level in 1..=5 {
             let dir = tempfile::TempDir::new().unwrap();

@@ -240,6 +240,39 @@ mod tests {
     }
 
     #[test]
+    fn compress_nonexistent_source_errors() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let result = compress(
+            &dir.path().join("ghost.txt"),
+            &dir.path().join("out.zip"),
+            "ghost.txt",
+            Algorithm::Zip,
+            1,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn compression_error_display_invalid_level() {
+        let err = CompressionError::InvalidLevel(99);
+        assert!(err.to_string().contains("99"));
+        assert!(err.to_string().contains("between 1 and 5"));
+    }
+
+    #[test]
+    fn compression_error_display_failed() {
+        let err = CompressionError::Failed("boom".into());
+        assert!(err.to_string().contains("boom"));
+    }
+
+    #[test]
+    fn compression_error_display_io() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "not found");
+        let err = CompressionError::from(io_err);
+        assert!(err.to_string().contains("not found"));
+    }
+
+    #[test]
     fn extract_no_extension_errors() {
         let dir = tempfile::TempDir::new().unwrap();
         let fake = dir.path().join("noext");

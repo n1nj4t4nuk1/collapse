@@ -208,6 +208,46 @@ mod tests {
     }
 
     #[test]
+    fn collect_files_recursive() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let base = dir.path().join("root");
+        std::fs::create_dir_all(base.join("a/b")).unwrap();
+        std::fs::write(base.join("top.txt"), b"top").unwrap();
+        std::fs::write(base.join("a/mid.txt"), b"mid").unwrap();
+        std::fs::write(base.join("a/b/deep.txt"), b"deep").unwrap();
+
+        let canonical = base.canonicalize().unwrap();
+        let mut out = Vec::new();
+        collect_files(&canonical, &canonical, &mut out).unwrap();
+        out.sort();
+        assert_eq!(out, vec!["a/b/deep.txt", "a/mid.txt", "top.txt"]);
+    }
+
+    #[test]
+    fn collect_files_empty_dir() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let base = dir.path().join("empty");
+        std::fs::create_dir_all(&base).unwrap();
+
+        let canonical = base.canonicalize().unwrap();
+        let mut out = Vec::new();
+        collect_files(&canonical, &canonical, &mut out).unwrap();
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn compress_nonexistent_source_errors() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let result = compress_7z(
+            &dir.path().join("nope.txt"),
+            &dir.path().join("out.7z"),
+            "nope.txt",
+            1,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn extract_7z_roundtrip_all_levels() {
         for level in 1..=5 {
             let dir = tempfile::TempDir::new().unwrap();

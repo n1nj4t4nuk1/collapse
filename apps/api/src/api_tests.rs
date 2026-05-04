@@ -652,6 +652,246 @@ async fn delete_completed_counts_deleted_files() {
 }
 
 // ---------------------------------------------------------------------------
+// POST /files — invalid algorithm returns 400
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn upload_invalid_algorithm_returns_400() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let (state, _rx) = test_state(&dir);
+    let app = build_router(state, &test_config());
+
+    let (ct, body) = multipart_upload("f.txt", b"x", Some("rar"), None);
+    let res = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/files")
+                .header("content-type", &ct)
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    let json = body_json(res).await;
+    assert!(json["detail"].as_str().unwrap().contains("Unknown algorithm"));
+}
+
+// ---------------------------------------------------------------------------
+// POST /files — level 0 returns 400
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn upload_level_zero_returns_400() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let (state, _rx) = test_state(&dir);
+    let app = build_router(state, &test_config());
+
+    let (ct, body) = multipart_upload("f.txt", b"x", None, Some(0));
+    let res = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/files")
+                .header("content-type", &ct)
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+}
+
+// ---------------------------------------------------------------------------
+// POST /files — upload with 7z algorithm
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn upload_7z_algorithm() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let (state, _rx) = test_state(&dir);
+    let app = build_router(state, &test_config());
+
+    let (ct, body) = multipart_upload("data.bin", b"binary data", Some("7z"), Some(3));
+    let res = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/files")
+                .header("content-type", &ct)
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(res.status(), StatusCode::ACCEPTED);
+    let json = body_json(res).await;
+    assert_eq!(json["algorithm"], "7z");
+    assert_eq!(json["level"], 3);
+    assert_eq!(json["archive_name"], "data.bin.7z");
+}
+
+// ---------------------------------------------------------------------------
+// DELETE /files/{job_id} — failed job can be deleted
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn delete_failed_job_succeeds() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let (state, _rx) = test_state(&dir);
+
+    let mut job = make_job("j1", JobStatus::Failed, &dir);
+    job.error_message = Some("boom".into());
+    state.registry.add(job);
+
+    let app = build_router(state, &test_config());
+    let res = app
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/files/j1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(res.status(), StatusCode::OK);
+}
+
+// ---------------------------------------------------------------------------
+// DELETE /files/{job_id} — compressing returns 409
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn delete_compressing_returns_409() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let (state, _rx) = test_state(&dir);
+    state
+        .registry
+        .add(make_job("j1", JobStatus::Compressing, &dir));
+
+    let app = build_router(state, &test_config());
+    let res = app
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/files/j1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(res.status(), StatusCode::CONFLICT);
+}
+
+// ---------------------------------------------------------------------------
+// GET /files/{job_id}/download — Content-Type and Content-Disposition headers
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn download_returns_correct_headers() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let (state, _rx) = test_state(&dir);
+
+    let archive_path = dir.path().join("output").join("j1.zip");
+    std::fs::write(&archive_path, b"PK\x03\x04fake").unwrap();
+
+    let mut job = make_job("j1", JobStatus::Completed, &dir);
+    job.compressed_path = archive_path;
+    state.registry.add(job);
+
+    let app = build_router(state, &test_config());
+    let res = app
+        .oneshot(
+            Request::builder()
+                .uri("/files/j1/download")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(res.status(), StatusCode::OK);
+    let content_type = res.headers().get("content-type").unwrap().to_str().unwrap();
+    assert_eq!(content_type, "application/zip");
+    let disposition = res
+        .headers()
+        .get("content-disposition")
+        .unwrap()
+        .to_str()
+        .unwrap();
+    assert!(disposition.contains("attachment"));
+    assert!(disposition.contains("file.txt.zip"));
+}
+
+// ---------------------------------------------------------------------------
+// GET /files/{job_id}/download — failed job error message in response
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn download_failed_returns_error_message() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let (state, _rx) = test_state(&dir);
+
+    let mut job = make_job("j1", JobStatus::Failed, &dir);
+    job.error_message = Some("out of disk".into());
+    state.registry.add(job);
+
+    let app = build_router(state, &test_config());
+    let res = app
+        .oneshot(
+            Request::builder()
+                .uri("/files/j1/download")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(res.status(), StatusCode::CONFLICT);
+    let json = body_json(res).await;
+    assert_eq!(json["detail"], "out of disk");
+}
+
+// ---------------------------------------------------------------------------
+// GET /files/{job_id}/status — returns all expected fields
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn get_status_returns_all_fields() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let (state, _rx) = test_state(&dir);
+    state.registry.add(make_job("j1", JobStatus::Queued, &dir));
+
+    let app = build_router(state, &test_config());
+    let res = app
+        .oneshot(
+            Request::builder()
+                .uri("/files/j1/status")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let json = body_json(res).await;
+    assert_eq!(json["job_id"], "j1");
+    assert_eq!(json["filename"], "file.txt");
+    assert_eq!(json["status"], "queued");
+    assert_eq!(json["algorithm"], "zip");
+    assert_eq!(json["level"], 3);
+    assert_eq!(json["archive_name"], "file.txt.zip");
+    assert!(json["created_at"].is_string());
+    assert!(json["updated_at"].is_string());
+}
+
+// ---------------------------------------------------------------------------
 // Full roundtrip: upload → compress → download → verify
 // ---------------------------------------------------------------------------
 

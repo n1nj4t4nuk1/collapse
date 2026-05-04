@@ -123,3 +123,102 @@ impl AppConfig {
         self.upload.max_size_mb * 1024 * 1024
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn defaults_are_sensible() {
+        let cfg = AppConfig::default();
+        assert_eq!(cfg.server.host, "0.0.0.0");
+        assert_eq!(cfg.server.port, 8000);
+        assert_eq!(cfg.storage.input_dir, PathBuf::from("storage/input"));
+        assert_eq!(cfg.storage.output_dir, PathBuf::from("storage/output"));
+        assert_eq!(cfg.upload.max_size_mb, 500);
+        assert_eq!(cfg.static_files.dir, PathBuf::from("static"));
+    }
+
+    #[test]
+    fn max_upload_bytes_conversion() {
+        let cfg = AppConfig::default();
+        assert_eq!(cfg.max_upload_bytes(), 500 * 1024 * 1024);
+
+        let mut cfg2 = AppConfig::default();
+        cfg2.upload.max_size_mb = 1;
+        assert_eq!(cfg2.max_upload_bytes(), 1024 * 1024);
+    }
+
+    #[test]
+    fn from_file_full_config() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("test.toml");
+        let mut f = std::fs::File::create(&path).unwrap();
+        writeln!(f, r#"
+[server]
+host = "127.0.0.1"
+port = 3000
+
+[storage]
+input_dir = "/tmp/in"
+output_dir = "/tmp/out"
+
+[upload]
+max_size_mb = 100
+
+[static]
+dir = "public"
+"#).unwrap();
+
+        let cfg = AppConfig::from_file(&path).unwrap();
+        assert_eq!(cfg.server.host, "127.0.0.1");
+        assert_eq!(cfg.server.port, 3000);
+        assert_eq!(cfg.storage.input_dir, PathBuf::from("/tmp/in"));
+        assert_eq!(cfg.storage.output_dir, PathBuf::from("/tmp/out"));
+        assert_eq!(cfg.upload.max_size_mb, 100);
+        assert_eq!(cfg.static_files.dir, PathBuf::from("public"));
+    }
+
+    #[test]
+    fn from_file_partial_config_uses_defaults() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("partial.toml");
+        std::fs::write(&path, "[server]\nport = 9090\n").unwrap();
+
+        let cfg = AppConfig::from_file(&path).unwrap();
+        assert_eq!(cfg.server.port, 9090);
+        // Everything else should be default
+        assert_eq!(cfg.server.host, "0.0.0.0");
+        assert_eq!(cfg.upload.max_size_mb, 500);
+    }
+
+    #[test]
+    fn from_file_empty_config_uses_all_defaults() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("empty.toml");
+        std::fs::write(&path, "").unwrap();
+
+        let cfg = AppConfig::from_file(&path).unwrap();
+        assert_eq!(cfg.server.host, "0.0.0.0");
+        assert_eq!(cfg.server.port, 8000);
+    }
+
+    #[test]
+    fn from_file_not_found_returns_error() {
+        let result = AppConfig::from_file(Path::new("/nonexistent/config.toml"));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Cannot read"));
+    }
+
+    #[test]
+    fn from_file_invalid_toml_returns_error() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("bad.toml");
+        std::fs::write(&path, "[server\nbroken").unwrap();
+
+        let result = AppConfig::from_file(&path);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Invalid config"));
+    }
+}

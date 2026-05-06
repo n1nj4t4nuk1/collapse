@@ -24,7 +24,7 @@ jobs:
           file: apps/api/Dockerfile
           push: false
           load: false
-          tags: collapse-api:ci
+          tags: collapse:ci-api
 
   docker-build-web:
     runs-on: ubuntu-latest
@@ -42,7 +42,7 @@ jobs:
           file: apps/web/Dockerfile
           push: false
           load: false
-          tags: collapse-web:ci
+          tags: collapse:ci-web
 
   docker-build-aio:
     runs-on: ubuntu-latest
@@ -60,4 +60,4 @@ jobs:
           file: apps/aio/Dockerfile
           push: false
           load: false
-          tags: collapse-aio:ci
+          tags: collapse:ci
